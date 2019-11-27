@@ -44,15 +44,22 @@ class NsgNetboxIntegration:
         try:
             # schedule next run
             self.scheduler.enter(delay=self.interval_sec, priority=1, action=self.run)
-            nb = pynetbox.api(url=self.args.netbox_url, token=self.args.netbox_token)
+
+            nsg = nsgapi.NsgAPI(log, self.args.nsg_url, self.args.nsg_token, self.args.netid)
+            tasks = nsg.get_tasks()
+            if tasks:
+                log.info('NetSpyGlass: tasks: {0}'.format(len(tasks)))
+                log.warning('skipping cycle because of an active NSG background task')
+                return
+
+            nbox = pynetbox.api(url=self.args.netbox_url, token=self.args.netbox_token)
 
             # TODO: user should be able to pass custom filter via command line args
             # status = 1 picks up devices with status=Active
             nb_devices = {str(ipaddress.ip_interface(d.primary_ip).ip): d
-                          for d in nb.dcim.devices.filter(status=1) if d.primary_ip is not None}
+                          for d in nbox.dcim.devices.filter(status=1) if d.primary_ip is not None}
             log.info('Netbox:      {0} devices'.format(len(nb_devices)))
 
-            nsg = nsgapi.NsgAPI(log, self.args.nsg_url, self.args.nsg_token, self.args.netid)
             nsg_devices = nsg.get_devices()
             log.info('NetSpyGlass: {0} devices'.format(len(nsg_devices)))
 

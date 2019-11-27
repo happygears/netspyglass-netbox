@@ -13,7 +13,7 @@ class NsgAPI:
 
     def query(self, nsgql):
         full_url = self.concatenate_url('v2/query/net/{0}/data'.format(self.netid))
-        headers = {'X-NSG-Auth-API-Token': self.token}
+        headers = self.make_headers()
         session = requests.Session()
         body = self.make_nsgql_query_request(nsgql)
         with session.post(full_url, json=body, timeout=60, headers=headers, verify=False, stream=True) as response:
@@ -43,7 +43,7 @@ class NsgAPI:
         if not devices:
             return None
         full_url = self.concatenate_url('v2/ui/net/{0}/devices/'.format(self.netid))
-        headers = {'X-NSG-Auth-API-Token': self.token, 'Content-Type': 'application/json'}
+        headers = self.make_headers()
         session = requests.Session()
         with session.post(full_url, json=devices, timeout=60, headers=headers, verify=False, stream=True) as response:
             return self.parse_and_log_response('ADD', response)
@@ -61,10 +61,22 @@ class NsgAPI:
             return None
         full_url = self.concatenate_url(
             'v2/ui/net/{0}/devices/{1}'.format(self.netid, ','.join(str(x) for x in device_ids)))
-        headers = {'X-NSG-Auth-API-Token': self.token}
+        headers = self.make_headers()
         session = requests.Session()
         with session.delete(full_url, timeout=60, headers=headers, verify=False, stream=True) as response:
             return self.parse_and_log_response('DELETE', response)
+
+    def get_tasks(self):
+        full_url = self.concatenate_url('v2/ui/net/{0}/tasks/'.format(self.netid))
+        headers = self.make_headers()
+        session = requests.Session()
+        filter = {'active': '1'}
+        with session.get(full_url, params=filter, timeout=60, headers=headers, verify=False, stream=True) as response:
+            return self.parse_and_log_response('TASKS', response)
+
+    def make_headers(self):
+        headers = {'X-NSG-Auth-API-Token': self.token, 'Content-Type': 'application/json'}
+        return headers
 
     def parse_and_log_response(self, name, response):
         headers = response.headers
