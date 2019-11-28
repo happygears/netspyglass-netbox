@@ -141,9 +141,6 @@ if __name__ == '__main__':
     parser.add_argument('--interval', required=False,
                         default=300,
                         help='Poll Netbox and NetSpyGlass at this interval (in seconds). (default=300)')
-    parser.add_argument('--log-dir', required=False,
-                        default='.',
-                        help='Directory where the log will be created')
     pa = parser.parse_args()
 
     urllib3.disable_warnings()

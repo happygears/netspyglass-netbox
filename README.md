@@ -75,7 +75,6 @@ for more details on `pynetbox` and detailed instructions for how to obtain Netbo
       --netid NETID         NetSpyGlass network id, usually "1" (default=1)
       --interval INTERVAL   Poll Netbox and NetSpyGlass at this interval (in
                             seconds). (default=300)
-      --log-dir LOG_DIR     Directory where the log will be created
 
 
 
