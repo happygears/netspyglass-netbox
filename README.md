@@ -8,26 +8,16 @@ device tags and can run in the background, checking and synchronizing devices at
 
 ## Installation and Setup
 
-### Docker
-
-You can run this tool using our public Docker image:
+Docker image we provide has all necessary dependency libraries and packages pre-installed, so all you need
+is a server or a VM running docker where you can just start the container using the following command:
 
     docker run -d --restart=always happygears/netspyglass-netbox:latest ./nsg-netbox.py <command line arguments>
 
 This will make docket detach from the shell and restart the process should it crash for any reason. Nothing will 
 appear to the standard output. All diagnostic information is written to the log, which  you can retrieve using
-standard `docker logs <container_id>` command
+standard `docker logs <container_id>` command (see below).
 
-### Install using pip
-
-This tool uses `pynetbox` Python module that you can install using pip:
-
-    pip install pynetbox
-
-The tool requires Python 3. If your system uses Python 2.7 as the default, you'll need
-to install Python3 and run pip like this
-
-    pip3 install pynetbox
+Use `docker kill` command with container id to stop the container.
 
 
 ### Authentication
@@ -146,6 +136,41 @@ NSG if its status changes from `Active` to any other.
 
 The tool produces the log of its activity and writes it to the standard output. This makes it easier to
 run on docker where you can use command `docker logs` to retrieve the log for analysis.
+
+## Troubleshooting
+
+The first basic step to do after you start the tool (especially on Docker where you do not get the log
+directly) is to inspect the log. Suppose we start it on Docker like so:
+
+    sudo docker run -d --restart=always happygears/netspyglass-netbox:latest ./nsg-netbox.py \
+        --netbox-url=$NETBOX_URL --netbox-token=$NETBOX_TOKEN  \
+        --nsg-url=$NSG_URL --nsg-token=$NSG_TOKEN \
+        --channel=v2public --interval=30
+
+this detaches and returns control to the shell. You can find the container using `docker ps` command:
+
+    $ sudo docker ps
+    CONTAINER ID   IMAGE                                  COMMAND                  CREATED         STATUS       
+    800aa813b9f8   happygears/netspyglass-netbox:latest   "./nsg-netbox.py --n…"   2 minutes ago   Up 2 minutes 
+
+Note the image name `happygears/netspyglass-netbox:latest` and command `./nsg-netbox.py` - that is our
+container. You need to copy the container ID and use command `docker logs ` to get the log:
+
+    $ sudo docker logs 800aa813b9f8
+    2019-11-28 02:27:31,093 - nsg-netbox - INFO - Namespace(blacklist=None, channel='v2public', interval='30', netbox_token='xx', netbox_url='removed', netid=1, nsg_token='xx', nsg_url='removed', whitelist=None)
+    2019-11-28 02:27:31,093 - nsg-netbox - INFO - Netbox-NetSpyGlass integration script starts
+    2019-11-28 02:27:31,121 - nsg-netbox - INFO - NSG TASKS server=labdcdev-nsg-api-2 response=[]
+    2019-11-28 02:27:31,224 - nsg-netbox - INFO - Netbox:      9 devices
+    2019-11-28 02:27:31,245 - nsg-netbox - INFO - NetSpyGlass: 9 devices
+    2019-11-28 02:28:01,244 - nsg-netbox - INFO - NSG TASKS server=labdcdev-nsg-api-2 response=[]
+    2019-11-28 02:28:01,349 - nsg-netbox - INFO - Netbox:      9 devices
+    2019-11-28 02:28:01,364 - nsg-netbox - INFO - NetSpyGlass: 9 devices
+
+This example uses parameter `--interval=30` to make it poll Netbox every 30 seconds. The tool prints
+number of devices it has found in both Netbox and NSG every time it does this and we see 2 cycles n the example above.
+
+Any errors or exceptions will appear in the log.
+
 
 ## Examples
 
