@@ -1,8 +1,8 @@
 
 # NetSpyGlass - Netbox integration
 
-This tool can be used to synchronize devices between Netbox (https://github.com/netbox-community/netbox) DCIM 
-and NetSpyGlass (NSG) (https://www.netspyglass.com). Synchronization is unidirectional, that is, devices are 
+This tool can be used to synchronize devices between [Netbox](https://github.com/netbox-community/netbox) DCIM 
+and [NetSpyGlass](https://www.netspyglass.com) (NSG). Synchronization is unidirectional, that is, devices are 
 copied from Netbox to NSG. The tool supports simple whitelist and blacklist filters based on Netbox
 device tags and can run in the background, checking and synchronizing devices at specified interval.
 
@@ -47,8 +47,9 @@ device tags and can run in the background, checking and synchronizing devices at
 You will need URL and access token for both Netbox and NSG to set up authentication.
 
 Parameter `--channel` describes communication channel NSG will use to poll devices added
-by this tool. All added devices are assumed to support the same channel. See NSG documentation
-for more details ( http://docs.netspyglass.com/3.0.x/nsg_agent.html#configuration-file-channels-conf )
+by this tool. All added devices are assumed to support the same channel. See 
+[NSG documentation](http://docs.netspyglass.com/3.0.x/nsg_agent.html#configuration-file-channels-conf) for more details.
+ 
 Suppose your agent runs with the default `channels.conf` configuration file (it shouldn't)
 which defines the following channels:
 
