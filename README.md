@@ -59,7 +59,8 @@ for more details on `pynetbox` and detailed instructions for how to obtain Netbo
       --netid NETID         NetSpyGlass network id, usually "1" (default=1)
       --interval INTERVAL   Poll Netbox and NetSpyGlass at this interval (in
                             seconds). (default=300)
-    
+      --log-dir LOG_DIR     Directory where the log will be created
+
 
 
 Parameter `--channel` describes communication channel NSG will use to poll devices added
@@ -126,6 +127,21 @@ after whitelist and blacklist filters are applied, it will be deleted in NSG.
 At this time, only devices with Status=`Active` are copied. Device will be automatically removed from
 NSG if its status changes from `Active` to any other.
 
+## Logging
+
+The tool produces the log of its activity and writes it to the standard output. This makes it easier to
+run on docker where you can use command `docker logs` to retrieve the log for analysis.
+
+## Docker
+
+You can run this tool using our public Docker image:
+
+    docker run -d --restart=always happygears/netspyglass-netbox:latest ./nsg-netbox.py <command line arguments>
+
+This will make docket detach from the shell and restart the process should it crash for any reason. Nothing will 
+appear to the standard output. All diagnostic information is written to the log, which  you can retrieve using
+standard `docker logs <container_id>` command
+
 
 ## Examples
 
@@ -154,4 +170,13 @@ Only devices with Netbox device tag `nsg` will be synchronized, unless they also
 This setup allows you to mark a broad set of devices to synchronize, but then remove a few of them
 if necessary, for example if they are under extended maintenance or have been taken offline temporarily 
 for any other reason
+
+    docker run -d --restart=always happygears/netspyglass-netbox:latest ./nsg-netbox.py \
+                    --netbox-url=$NB_URL --netbox-token=$NB_TOKEN \
+                    --nsg-url=$NSG_URL --nsg-token=$NSG_TOKEN \
+                    --channel=v2public \
+                    --whitelist=nsg \
+                    --blacklist=nsg_ignore
+
+The same configuration as the above, but running on docker
 

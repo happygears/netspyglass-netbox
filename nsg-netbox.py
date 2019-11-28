@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
 import ipaddress
 import logging
 import os
@@ -13,12 +12,6 @@ import urllib3
 
 import nsgapi
 
-logging.basicConfig(
-    filename=os.getenv('LOG_DIR', '.') + '/nsg-netbox.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-log = logging.getLogger('nsg-netbox')
-
 
 class NsgNetboxIntegration:
 
@@ -26,11 +19,19 @@ class NsgNetboxIntegration:
         self.args = args
         self.scheduler = sched.scheduler(timefunc=time.time, delayfunc=time.sleep)
         self.interval_sec = int(pa.interval)
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler()
+            ])
+        self.log = logging.getLogger('nsg-netbox')
 
     def log_args(self):
-        log.info(self.args)
+        self.log.info(self.args)
 
     def start(self):
+        self.log.info('Netbox-NetSpyGlass integration script starts')
         self.run()
         # maintain the process indefinitely
         try:
@@ -48,20 +49,20 @@ class NsgNetboxIntegration:
             # schedule next run
             self.scheduler.enter(delay=self.interval_sec, priority=1, action=self.run)
 
-            nsg = nsgapi.NsgAPI(log, self.args.nsg_url, self.args.nsg_token, self.args.netid)
+            nsg = nsgapi.NsgAPI(self.log, self.args.nsg_url, self.args.nsg_token, self.args.netid)
             tasks = nsg.get_tasks()
             if tasks:
-                log.info('NetSpyGlass: tasks: {0}'.format(len(tasks)))
-                log.warning('skipping cycle because of an active NSG background task')
+                self.log.info('NetSpyGlass: tasks: {0}'.format(len(tasks)))
+                self.log.warning('skipping cycle because of an active NSG background task')
                 return
 
             nbox = pynetbox.api(url=self.args.netbox_url, token=self.args.netbox_token)
 
             nbox_devices = self.get_netbox_devices(nbox)
-            log.info('Netbox:      {0} devices'.format(len(nbox_devices)))
+            self.log.info('Netbox:      {0} devices'.format(len(nbox_devices)))
 
             nsg_devices = nsg.get_devices()
-            log.info('NetSpyGlass: {0} devices'.format(len(nsg_devices)))
+            self.log.info('NetSpyGlass: {0} devices'.format(len(nsg_devices)))
 
             nb_dev_set = set(nbox_devices.keys())
             nsg_dev_set = set(nsg_devices.keys())
@@ -69,17 +70,17 @@ class NsgNetboxIntegration:
             to_remove = set.difference(nsg_dev_set, nb_dev_set)  # set of addresses as strings
 
             if to_add:
-                log.info('ADD devices:    {0}'.format(to_add))
+                self.log.info('ADD devices:    {0}'.format(to_add))
                 nsg.add_devices(list(self.make_add_device_dict(addr, nbox_devices[addr]) for addr in to_add))
 
             if to_remove:
-                log.info('DELETE devices: {0}'.format(to_remove))
+                self.log.info('DELETE devices: {0}'.format(to_remove))
                 nsg.delete_devices(list(nsg_devices[addr]['id'] for addr in to_remove))
 
         except pynetbox.core.query.RequestError as e:
-            log.error('Netbox API call has failed: {0}'.format(e))
+            self.log.error('Netbox API call has failed: {0}'.format(e))
         except Exception as e:
-            log.exception('Unknown exception: %s', e)
+            self.log.exception('Unknown exception: %s', e)
 
     def get_netbox_devices(self, nbox):
         # status = 1 picks up devices with status=Active
@@ -140,11 +141,12 @@ if __name__ == '__main__':
     parser.add_argument('--interval', required=False,
                         default=300,
                         help='Poll Netbox and NetSpyGlass at this interval (in seconds). (default=300)')
+    parser.add_argument('--log-dir', required=False,
+                        default='.',
+                        help='Directory where the log will be created')
     pa = parser.parse_args()
 
     urllib3.disable_warnings()
-
-    log.info('Netbox-NetSpyGlass integration script starts')
 
     nsgnb = NsgNetboxIntegration(pa)
     nsgnb.log_args()
