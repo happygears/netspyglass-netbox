@@ -1,5 +1,5 @@
-# netspyglass-netbox
-NetSpyGlass - Netbox integration
+
+# NetSpyGlass - Netbox integration
 
 This tool can be used to synchronize devices between Netbox (https://github.com/netbox-community/netbox) DCIM 
 and NetSpyGlass (NSG) (https://www.netspyglass.com). Synchronization is unidirectional, that is, devices are 
