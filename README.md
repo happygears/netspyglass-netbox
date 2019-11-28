@@ -61,4 +61,31 @@ Use parameter `--interval` to specify synchronization interval.
 The tool, once started, does not detach itself from the shell in which it runs and
 runs in the loop until stopped.
 
+## Examples
+
+    ./nsg-netbox.py --netbox-url=$NB_URL --netbox-token=$NB_TOKEN \
+                    --nsg-url=$NSG_URL --nsg-token=$NSG_TOKEN \
+                    --channel=v2public
+
+this command will synchronize all devices between Netbox and NSG at 5 min interval (the default),
+adding polling channel 'v2public' to all devices it adds to NSG. Note that the channel name
+'v2public' must match one of the channels configured in NSG agent.
+
+    ./nsg-netbox.py --netbox-url=$NB_URL --netbox-token=$NB_TOKEN \
+                    --nsg-url=$NSG_URL --nsg-token=$NSG_TOKEN \
+                    --channel=v2public \
+                    --whitelist=nsg
+
+The same as the above but only devices with Netbox device tag `nsg` will be synchronized
+
+    ./nsg-netbox.py --netbox-url=$NB_URL --netbox-token=$NB_TOKEN \
+                    --nsg-url=$NSG_URL --nsg-token=$NSG_TOKEN \
+                    --channel=v2public \
+                    --whitelist=nsg \
+                    --blacklist=nsg_ignore
+
+Only devices with Netbox device tag `nsg` will be synchronized, unless they also have tag `nsg_ignore`.
+This setup allows you to mark a broad set of devices to synchronize, but then remove a few of them
+if necessary, for example if they are under extended maintenance or have been taken offline temporarily 
+for any other reason
 
