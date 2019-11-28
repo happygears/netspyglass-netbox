@@ -13,7 +13,7 @@ is a server or a VM running docker where you can just start the container using 
 
     docker run -d --restart=always happygears/netspyglass-netbox:latest ./nsg-netbox.py <command line arguments>
 
-This will make docket detach from the shell and restart the process should it crash for any reason. Nothing will 
+This will make docker detach from the shell and restart the process should it crash for any reason. Nothing will 
 appear to the standard output. All diagnostic information is written to the log, which  you can retrieve using
 standard `docker logs <container_id>` command (see below).
 
@@ -115,8 +115,6 @@ suppress some of the devices even if they pass the whitelist filter.
 
 Use parameter `--interval` to specify synchronization interval.
 
-The tool, once started, does not detach itself from the shell in which it runs and
-runs in the loop until stopped.
 
 ## Synchronization
 
