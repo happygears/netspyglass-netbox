@@ -6,6 +6,22 @@ and [NetSpyGlass](https://www.netspyglass.com) (NSG). Synchronization is unidire
 copied from Netbox to NSG. The tool supports simple whitelist and blacklist filters based on Netbox
 device tags and can run in the background, checking and synchronizing devices at specified interval.
 
+## Setup
+    
+You will need URL and access token for both Netbox and NSG to set up authentication.
+This tool uses `pynetbox` Python module that you can install using pip:
+
+    pip install pynetbox
+
+The tool requires Python 3. If your system uses Python 2.7 as the default, you'll need
+to install Python3 and run pip like this
+
+    pip3 install pynetbox
+
+See excellent series on [Przemek Rogala's blog](https://ttl255.com/pynetbox-netbox-python-api-client-p1-getting-info/) 
+for more details on `pynetbox` and detailed instructions for how to obtain Netbox authentication tokens
+
+
 ## Usage
 
     $ ./nsg-netbox.py  -h
@@ -44,7 +60,7 @@ device tags and can run in the background, checking and synchronizing devices at
       --interval INTERVAL   Poll Netbox and NetSpyGlass at this interval (in
                             seconds). (default=300)
     
-You will need URL and access token for both Netbox and NSG to set up authentication.
+
 
 Parameter `--channel` describes communication channel NSG will use to poll devices added
 by this tool. All added devices are assumed to support the same channel. See 
