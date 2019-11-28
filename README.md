@@ -6,9 +6,20 @@ and [NetSpyGlass](https://www.netspyglass.com) (NSG). Synchronization is unidire
 copied from Netbox to NSG. The tool supports simple whitelist and blacklist filters based on Netbox
 device tags and can run in the background, checking and synchronizing devices at specified interval.
 
-## Setup
-    
-You will need URL and access token for both Netbox and NSG to set up authentication.
+## Installation and Setup
+
+### Docker
+
+You can run this tool using our public Docker image:
+
+    docker run -d --restart=always happygears/netspyglass-netbox:latest ./nsg-netbox.py <command line arguments>
+
+This will make docket detach from the shell and restart the process should it crash for any reason. Nothing will 
+appear to the standard output. All diagnostic information is written to the log, which  you can retrieve using
+standard `docker logs <container_id>` command
+
+### Install using pip
+
 This tool uses `pynetbox` Python module that you can install using pip:
 
     pip install pynetbox
@@ -17,6 +28,11 @@ The tool requires Python 3. If your system uses Python 2.7 as the default, you'l
 to install Python3 and run pip like this
 
     pip3 install pynetbox
+
+
+### Authentication
+
+You will need URL and access token for both Netbox and NSG to set up authentication.
 
 See excellent series on [Przemek Rogala's blog](https://ttl255.com/pynetbox-netbox-python-api-client-p1-getting-info/) 
 for more details on `pynetbox` and detailed instructions for how to obtain Netbox authentication tokens
@@ -131,17 +147,6 @@ NSG if its status changes from `Active` to any other.
 
 The tool produces the log of its activity and writes it to the standard output. This makes it easier to
 run on docker where you can use command `docker logs` to retrieve the log for analysis.
-
-## Docker
-
-You can run this tool using our public Docker image:
-
-    docker run -d --restart=always happygears/netspyglass-netbox:latest ./nsg-netbox.py <command line arguments>
-
-This will make docket detach from the shell and restart the process should it crash for any reason. Nothing will 
-appear to the standard output. All diagnostic information is written to the log, which  you can retrieve using
-standard `docker logs <container_id>` command
-
 
 ## Examples
 
