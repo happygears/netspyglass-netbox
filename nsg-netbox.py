@@ -33,8 +33,11 @@ class NsgNetboxIntegration:
     def start(self):
         self.run()
         # maintain the process indefinitely
-        while True:
-            self.scheduler.run(blocking=True)
+        try:
+            while True:
+                self.scheduler.run(blocking=True)
+        except KeyboardInterrupt as e:
+            return
 
     def run(self):
         """
@@ -54,23 +57,20 @@ class NsgNetboxIntegration:
 
             nbox = pynetbox.api(url=self.args.netbox_url, token=self.args.netbox_token)
 
-            # TODO: user should be able to pass custom filter via command line args
-            # status = 1 picks up devices with status=Active
-            nb_devices = {str(ipaddress.ip_interface(d.primary_ip).ip): d
-                          for d in nbox.dcim.devices.filter(status=1) if d.primary_ip is not None}
-            log.info('Netbox:      {0} devices'.format(len(nb_devices)))
+            nbox_devices = self.get_netbox_devices(nbox)
+            log.info('Netbox:      {0} devices'.format(len(nbox_devices)))
 
             nsg_devices = nsg.get_devices()
             log.info('NetSpyGlass: {0} devices'.format(len(nsg_devices)))
 
-            nb_dev_set = set(nb_devices.keys())
+            nb_dev_set = set(nbox_devices.keys())
             nsg_dev_set = set(nsg_devices.keys())
-            to_add = set.difference(nb_dev_set, nsg_dev_set)     # set of addresses as strings
+            to_add = set.difference(nb_dev_set, nsg_dev_set)  # set of addresses as strings
             to_remove = set.difference(nsg_dev_set, nb_dev_set)  # set of addresses as strings
 
             if to_add:
                 log.info('ADD devices:    {0}'.format(to_add))
-                nsg.add_devices(list(self.make_add_device_dict(nb_devices, addr) for addr in to_add))
+                nsg.add_devices(list(self.make_add_device_dict(addr, nbox_devices[addr]) for addr in to_add))
 
             if to_remove:
                 log.info('DELETE devices: {0}'.format(to_remove))
@@ -81,8 +81,34 @@ class NsgNetboxIntegration:
         except Exception as e:
             log.exception('Unknown exception: %s', e)
 
-    def make_add_device_dict(self, nb_devices, addr):
-        return {'name': nb_devices[addr].name, 'address': addr, 'channels': self.args.channel}
+    def get_netbox_devices(self, nbox):
+        # status = 1 picks up devices with status=Active
+        return {self.get_primary_ip(d): d for d in self.netbox_dcim(nbox) if self.condition(d)}
+
+    def netbox_dcim(self, nbox):
+        if self.args.whitelist:
+            return nbox.dcim.devices.filter(status=1, tag=[self.args.whitelist])
+        else:
+            return nbox.dcim.devices.filter(status=1)
+
+    def get_primary_ip(self, device):
+        return str(ipaddress.ip_interface(device.primary_ip).ip)
+
+    def condition(self, device):
+        if self.args.blacklist:
+            return device.primary_ip is not None and self.args.blacklist not in device.tags
+        else:
+            return device.primary_ip is not None
+
+    def make_add_device_dict(self, addr, nb_device):
+        """
+        Build JSON dictionary that can be used as a body of NSG API call that adds device
+
+        :param nb_device: an object received from `pynetbox.dcim.devices.filter() call`
+        :param addr:      device's primary ip as a string
+        :return:
+        """
+        return {'name': nb_device.name, 'address': addr, 'channels': self.args.channel}
 
 
 if __name__ == '__main__':
@@ -93,8 +119,21 @@ if __name__ == '__main__':
     parser.add_argument('--nsg-token', required=True)
     parser.add_argument('--channel', required=True,
                         help='NetSpyGlass communication channel name to use with all imported devices')
-    parser.add_argument('--tags', required=False,
-                        help='comma-separated list of device tags to copy from Netbox to NetSpyGlass (optional)')
+    parser.add_argument('--whitelist', required=False,
+                        help='the name of the Netbox device tag that will be passed to `dcim.devices.filter()` '
+                             'call to filter devices in Netbox. Only devices that have this tag will be '
+                             'synchronized to NetSpyGlass. Default is None, which causes all '
+                             'devices present in Netbox to be synchronized. At this time this can be only '
+                             'a single tag name. Example: "--whitelist=nsg"')
+    parser.add_argument('--blacklist', required=False,
+                        help='the name of the Netbox device tag that will be passed '
+                             'to `dcim.devices.filter()` call to filter devices in '
+                             'Netbox. Devices that have this tag will not be '
+                             'synchronized to NetSpyGlass. Blacklist filter is '
+                             'applied after the whitelist (if any). Default is None, '
+                             'which turns this off and causes all devices that pass '
+                             'whitelist will be synchronized. At this time this can '
+                             'be only a single tag name. Example: "--blacklist=nsg_ignore"')
     parser.add_argument('--netid', required=False,
                         default=1,
                         help='NetSpyGlass network id, usually "1" (default=1)')
