@@ -48,7 +48,41 @@ You will need URL and access token for both Netbox and NSG to set up authenticat
 
 Parameter `--channel` describes communication channel NSG will use to poll devices added
 by this tool. All added devices are assumed to support the same channel. See NSG documentation
-for more details.
+for more details ( http://docs.netspyglass.com/3.0.x/nsg_agent.html#configuration-file-channels-conf )
+Suppose your agent runs with the default `channels.conf` configuration file (it shouldn't)
+which defines the following channels:
+
+    network {
+        channels = {
+
+            v1public : {
+                protocol : snmp,
+                version : 1,
+                community : public
+            },
+
+            v2public : {
+                protocol : snmp,
+                version : 2,
+                community : public
+            },
+
+            v3md5public : {
+                protocol : snmp,
+                version : 3,
+                secLevel : authNoPriv,
+                auth : MD5,
+                user : snmpuser,
+                password : public
+            },
+
+        }
+    }
+
+In this case you could use 'v1public', 'v2public' or 'v3md5public' as the value for the paramete `--channel`.
+Note that only one channel can be used and it will apply to all devices imported from Netbox. In practical
+terms, this means that all these devices should have the same SNMP configuration (same SNMP version and the community
+for v1 and v2, or same credentials for SNMP v3)
 
 The `whitelist` and `blacklist` parameters take single word as a value, which is expected
 to be a Netbox device tag. If parameter `--whitelist` is provided, only devices that have 
