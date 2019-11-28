@@ -96,6 +96,21 @@ Use parameter `--interval` to specify synchronization interval.
 The tool, once started, does not detach itself from the shell in which it runs and
 runs in the loop until stopped.
 
+## Synchronization
+
+The tool polls Netbox and NSG at specified interval, collects list of devices defined in both systems
+and compares them. If a device that matches filtering criteria (whitelist and blacklist, if any) appears
+in Netbox but is missing in NSG, it will be added to NSG. If a device still present in NSG disappears in Netbox,
+after whitelist and blacklist filters are applied, it will be deleted in NSG. 
+
+*Devices are matched by their IP address, using `primary_ip` attribute of the device in Netbox*
+
+![](netbox-scrn-1.png)
+
+At this time, only devices with Status=`Active` are copied. Device will be automatically removed from
+NSG if its status changes from `Active` to any other.
+
+
 ## Examples
 
     ./nsg-netbox.py --netbox-url=$NB_URL --netbox-token=$NB_TOKEN \
