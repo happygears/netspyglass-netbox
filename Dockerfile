@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY nsg-netbox.py ./
 COPY nsgapi.py ./
 
-CMD [ "python", "./net-netbox.py"]
+CMD [ "python", "./nsg-netbox.py"]
