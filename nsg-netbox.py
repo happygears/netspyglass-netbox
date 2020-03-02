@@ -9,6 +9,7 @@ import sched
 import sys
 import time
 import urllib3
+import yaml
 
 import nsgapi
 
@@ -17,6 +18,10 @@ class NsgNetboxIntegration:
 
     def __init__(self, args) -> None:
         self.args = args
+        self.config = None
+        if args.config:
+            with open(args.config, 'r') as f:
+                self.config = yaml.safe_load(f)
         self.scheduler = sched.scheduler(timefunc=time.time, delayfunc=time.sleep)
         self.interval_sec = int(pa.interval)
         logging.basicConfig(
@@ -83,21 +88,28 @@ class NsgNetboxIntegration:
             self.log.exception('Unknown exception: %s', e)
 
     def get_netbox_devices(self, nbox):
-        # status = 1 picks up devices with status=Active
         return {self.get_primary_ip(d): d for d in self.netbox_dcim(nbox) if self.condition(d)}
 
     def netbox_dcim(self, nbox):
-        if self.args.whitelist:
-            return nbox.dcim.devices.filter(status=1, tag=[self.args.whitelist])
-        else:
+        if not self.config:
             return nbox.dcim.devices.filter(status=1)
+        if not self.config.get('filters'):
+            self.config['filters'] = {'status': 1}
+        filters = {}
+        for fk, fv in self.config['filters'].items():
+            if 'custom_fields' in fk:
+                fk = 'cf_{}'.format(fk.split('.')[1])
+            filters[fk] = fv
+        if self.config.get('whitelist'):
+            filters['tag'] = self.config['whitelist']
+        return nbox.dcim.devices.filter(**filters)
 
     def get_primary_ip(self, device):
         return str(ipaddress.ip_interface(device.primary_ip).ip)
 
     def condition(self, device):
-        if self.args.blacklist:
-            return device.primary_ip is not None and self.args.blacklist not in device.tags
+        if self.config.get('blacklist'):
+            return device.primary_ip is not None and not any([tag in device.tags for tag in self.config['blacklist']])
         else:
             return device.primary_ip is not None
 
@@ -115,26 +127,12 @@ class NsgNetboxIntegration:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--netbox-url', required=True)
-    parser.add_argument('--netbox-token', required=True)
+    parser.add_argument('--netbox-token', required=False)
     parser.add_argument('--nsg-url', required=True)
     parser.add_argument('--nsg-token', required=True)
     parser.add_argument('--channel', required=True,
                         help='NetSpyGlass communication channel name to use with all imported devices')
-    parser.add_argument('--whitelist', required=False,
-                        help='the name of the Netbox device tag that will be passed to `dcim.devices.filter()` '
-                             'call to filter devices in Netbox. Only devices that have this tag will be '
-                             'synchronized to NetSpyGlass. Default is None, which causes all '
-                             'devices present in Netbox to be synchronized. At this time this can be only '
-                             'a single tag name. Example: "--whitelist=nsg"')
-    parser.add_argument('--blacklist', required=False,
-                        help='the name of the Netbox device tag that will be passed '
-                             'to `dcim.devices.filter()` call to filter devices in '
-                             'Netbox. Devices that have this tag will not be '
-                             'synchronized to NetSpyGlass. Blacklist filter is '
-                             'applied after the whitelist (if any). Default is None, '
-                             'which turns this off and causes all devices that pass '
-                             'whitelist will be synchronized. At this time this can '
-                             'be only a single tag name. Example: "--blacklist=nsg_ignore"')
+    parser.add_argument('--config', required=False, help='Config yaml file that lists the netbox query options')
     parser.add_argument('--netid', required=False,
                         default=1,
                         help='NetSpyGlass network id, usually "1" (default=1)')
