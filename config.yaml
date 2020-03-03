@@ -1,0 +1,21 @@
+---
+# netbox device attributes that should be used as filters for devices query.
+# these translate directly into the return fields from the netbox json API.
+# If no filter is specified, by default only devices with Active (1) status are pulled.
+filters:
+  status: [1, 3]
+  manufacturer: ['juniper']
+  custom_fields.field1: "foo"
+
+# list of tags to filter devices in Netbox. Only devices that have this tag will be 
+# synchronized to NetSpyGlass. Default is None, which causes all devices present in Netbox to be synchronized.
+whitelist:
+  - tag1
+  - tag2
+
+# list of tags to blacklist from netbox. Devices that have this tag will not be synchronized to NetSpyGlass.
+# Blacklist filter is applied after the whitelist (if any). Default is None, which turns this off and causes all
+# devices that pass whitelist will be synchronized
+blacklist:
+  - tagq
+
