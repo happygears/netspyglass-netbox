@@ -39,7 +39,7 @@ class NsgAPI:
 
         :param devices:  list of dictionaries
         """
-        print('ADD:  {0}'.format(list(devices)))
+        self.log.info('ADD:  {0}'.format(list(devices)))
         if not devices:
             return None
         full_url = self.concatenate_url('v2/ui/net/{0}/devices/'.format(self.netid))
@@ -56,7 +56,7 @@ class NsgAPI:
 
         :param device_ids:  list of device ids
         """
-        print('REMOVE:  {0}'.format(list(device_ids)))
+        self.log.info('REMOVE:  {0}'.format(list(device_ids)))
         if not device_ids:
             return None
         full_url = self.concatenate_url(
