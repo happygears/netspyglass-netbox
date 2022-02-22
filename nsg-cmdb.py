@@ -35,6 +35,15 @@ class NsgCmdbIntegration:
                 logging.StreamHandler()
             ])
         self.log = logging.getLogger('nsg-cmdb')
+        print("========= get_nsg_device")
+        print("========= url : ", self.config["nsg_settings"]["nsg_url"])
+        print("========= nsg_token: ", self.config["nsg_settings"]["nsg_token"])
+        print("========= netid: ", self.config["nsg_settings"]["netid"])
+        self.nsg = nsgapi.NsgAPI(self.log,
+                            self.config["nsg_settings"]["nsg_url"],
+                            self.config["nsg_settings"]["nsg_token"],
+                            self.config["nsg_settings"]["netid"],
+                           )
 
     def log_args(self):
         self.log.info(self.args)
@@ -76,28 +85,77 @@ class NsgCmdbIntegration:
         my_class = getattr(module, class_name)
         # my_class.welcome('User_1')
         
-        cmdb_devices = my_class.runs(self)
+        cmdb_devices_operational, cmdb_devices_retired = my_class.runs(self)
         # cmdb_devices = my_class.get_snow_cmdb_devices(self)
         self.log.info("output in main file")
-        print(cmdb_devices)
+        self.log.info("==============OPERATIONAL================")
+        print(cmdb_devices_operational)
+        self.log.info("==============RETIRED================")
+        print(cmdb_devices_retired)
+        self.log.info("==============================")
+
         # self.log = logging.getLogger('nsg-servicenow')
-        nsg_devices = my_class.get_nsg_device(self)
+        # nsg_devices = my_class.get_nsg_device(self)
+        # self.log = logging.getLogger('nsg-cmdb')
+        nsg_devices = self.get_nsg_device()
         self.log.info('NetSpyGlass: {0} devices'.format(len(nsg_devices)))
 
-        # nb_dev_set = set(cmdb_devices.keys())
-        # nsg_dev_set = set(nsg_devices.keys())
-        # to_add = set.difference(nb_dev_set, nsg_dev_set)  # set of addresses as strings
-        # to_remove = set.difference(nsg_dev_set, nb_dev_set)  # set of addresses as strings
+        cmdb_dev_set = set(cmdb_devices_operational.keys())
+        self.log.info('cmdb_dev_set: {0}'.format(cmdb_dev_set))
+        nsg_dev_set = set(nsg_devices.keys())
+        self.log.info('nsg_dev_set: {0}'.format(nsg_dev_set))
 
-        # if to_add:
-        #     self.log.info('ADD devices:    {0}'.format(to_add))
-        #     nsg.add_devices(list(self.make_add_device_dict(addr, cmdb_devices[addr]) for addr in to_add))
+        to_add = set.difference(cmdb_dev_set, nsg_dev_set)  # set of addresses as strings
+        self.log.info('TO_ADD:    {0}'.format(to_add))
 
-        # if to_remove:
-        #     self.log.info('DELETE devices: {0}'.format(to_remove))
-        #     nsg.delete_devices(list(nsg_devices[addr]['id'] for addr in to_remove))
+        to_remove = set.difference(nsg_dev_set, cmdb_dev_set)  # set of addresses as strings
+        self.log.info('TO_REMOVE-1: {0}'.format(to_remove))
+        
+        # additional check // Naidu
+        cmdb_retired_dev_set = set(cmdb_devices_retired.keys())
+        self.log.info('cmdb_retired_dev_set: {0}'.format(cmdb_retired_dev_set))
 
 
+        if self.config["nsg_settings"]["skip_delete_non_cmdb_devices"]:
+            # This deletes devices that are marked as "retired" in SNOW CMDB
+            to_remove = set.intersection(to_remove, cmdb_retired_dev_set)  # set of addresses as strings
+            self.log.info('TO_REMOVE-2: {0}'.format(to_remove))
+
+
+        self.log.info('TO_ADD_FINAL:    {0}'.format(to_add))
+        self.log.info('TO_REMOVE_FINAL: {0}'.format(to_remove))
+
+        if to_add:
+            self.log.info('ADD devices:    {0}'.format(to_add))
+            self.nsg.add_devices(list(self.make_add_device_dict(addr, cmdb_devices_operational[addr]) for addr in to_add))
+
+        if to_remove:
+            self.log.info('DELETE devices: {0}'.format(to_remove))
+            self.nsg.delete_devices(list(nsg_devices[addr]['id'] for addr in to_remove))
+
+    def get_nsg_device(self):
+
+        tasks = self.nsg.get_tasks()
+        if tasks:
+            self.log.info('NetSpyGlass: tasks: {0}'.format(len(tasks)))
+            self.log.warning('skipping cycle because of an active NSG background task')
+            return
+        
+        nsg_devices = self.nsg.get_devices()
+        # self.log = logging.getLogger('nsg-servicenow')
+        self.log.info('NetSpyGlass: {0} devices'.format(len(nsg_devices)))
+        self.log.info('nsg_devices : {}'.format(nsg_devices))
+        return nsg_devices
+    
+    def make_add_device_dict(self, addr, cmdb_devices):
+        """
+        Build JSON dictionary that can be used as a body of NSG API call that adds device
+
+        :param cmdb_devices :  dict of CMDB devices
+        :param addr         :  device's primary ip as a string
+        :return:
+        """
+        return {'name': cmdb_devices['name'], 'address': addr, 'channels': self.config["nsg_settings"]["nsg_channel"]}
 
 
 if __name__ == '__main__':

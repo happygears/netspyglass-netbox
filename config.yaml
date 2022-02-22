@@ -12,11 +12,12 @@ cmdb_settings:
 nsg_settings:
   # nsg_url: "https://labdcbig3.netspyglass.com:9100"
   # nsg_token: "gVc1gpLpyroVzrze"
-  nsg_url: "https://uct.netspyglass.com/" #"https://labdc.netspyglass.com:443"
-  nsg_token: "5eVJg3cXYgKltvQ1" #"JJcTKACMQFeIdXW3"
-  nsg_channel: ""
+  nsg_url: "https://envoyproxy.netspyglass.com:10576" # "https://uct.netspyglass.com/" #"https://labdc.netspyglass.com:443"
+  nsg_token: "Tju88nILa7eH1YFV" # "5eVJg3cXYgKltvQ1" #"JJcTKACMQFeIdXW3"
+  nsg_channel: "v1public"
   netid: 1
   interval: 300
+  skip_delete_non_cmdb_devices: True # This flag = True skips devices that are added in NSG directly
 
 # netbox device attributes that should be used as filters for devices query.
 # these translate directly into the return fields from the netbox json API.
