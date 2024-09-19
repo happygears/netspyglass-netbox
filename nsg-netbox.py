@@ -154,7 +154,8 @@ class NsgNetboxIntegration:
                     break
                 time.sleep(5)
 
-            self.nsg.post_device_tags(tag_list=tag_list)
+            if tag_list:
+                self.nsg.post_device_tags(tag_list=tag_list)
 
             if to_remove:
                 self.log.info('DELETE devices: {0}'.format(to_remove))
@@ -401,7 +402,7 @@ def make_add_tag_dict(nbox_devices: dict[str: pynetbox.models.dcim.Devices],
             tags.append({"category": "device",
                          "device": {"id": n_tags.get("id")} if n_tags.get("id") else {"address": address},
                          "tags": [f"{k}.{v}" for k, v in device.nsg_tags.items()
-                                  if n_tags.get("tags", {}).get(k) != v]
+                                  if n_tags.get("tags", {}).get(k) != str(v)]
                          })
     return tags
 

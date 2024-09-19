@@ -150,14 +150,6 @@ class NsgAPI:
 
         url = self.concatenate_url('v2/tags/net/{0}/external/'.format(self.netid))
         headers = self.make_headers()
-        # body = [
-        #     {
-        #         "category": "device",
-        #         "device": device_filter,
-        #         "tags": tags
-        #     }
-        # ]
-
         resp = self.sess.post(url=url,
                               headers=headers,
                               verify=False,
@@ -166,12 +158,7 @@ class NsgAPI:
         if resp.status_code != http.HTTPStatus.OK:
             self.log.error('NetSpyGlass POST tags error: {} {0}'.format(resp.status_code, resp.text))
             return list()
-
-        try:
-            result = resp.json()
-        except json.JSONDecodeError as e:
-            raise ValueError(e.msg)
-        return result
+        return self.parse_and_log_response("ADD TAGS", resp)
 
     def get_remote_config(self, asset_type: str = "devices") -> str:
         """
