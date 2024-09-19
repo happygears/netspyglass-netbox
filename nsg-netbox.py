@@ -5,6 +5,8 @@ import http
 import ipaddress
 import logging
 import os
+import re
+
 import pynetbox
 from pynetbox.core.query import Request as nbox_Request
 import sched
@@ -18,10 +20,10 @@ import nsgapi
 
 class NsgNetboxIntegration:
 
-    def __init__(self, args) -> None:
+    def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
+        self._config_dir = os.path.dirname(os.path.abspath(self.args.config)) if args.config else None
         self.config = None
-        self.update_config = False
         self.domain = None
         self._sites = {}
         self.log = logging.getLogger('nsg-netbox')
@@ -31,15 +33,13 @@ class NsgNetboxIntegration:
             self.active = "active"
         else:
             self.active = 1
-
-        self.config = self.load_remote_config()
-
-        if args.config and not self.config:
-            with open(args.config, 'r') as f:
-                self.config = yaml.safe_load(f)
-
+        self.config = self.load_config()
         self.domain = self.config.get('domain')
-
+        self.channels={}
+        if args.channel:
+            self.channels["*"] = [args.channel, ]
+        else:
+            self.channels = self.config.get("default_channels", {})
         self.scheduler = sched.scheduler(timefunc=time.time, delayfunc=time.sleep)
 
         self.interval_sec = int(pa.interval)
@@ -56,25 +56,31 @@ class NsgNetboxIntegration:
             if isinstance(v, dict):
                 result.update(self.resolve_refs(v))
             if isinstance(v, str) and v.startswith("$") and not result.get(v[1:]):
-                result[v[1:]] = self.load_remote_config(asset_type=v[1:])
+                result[v[1:]] = self.load_config(asset_type=v[1:])
         return result
 
-    def load_remote_config(self, asset_type: str = "devices") -> dict or None:
+    def load_config(self, asset_type: str = "devices") -> dict or None:
         """
-        Load config from gitea
+        Load config from gitea or local
 
         :param asset_type:  config name
         :return: parsed config
         """
+
+        if self.args.config:
+            with open(os.path.join(self._config_dir, f"{asset_type}.yaml"), 'r') as f:
+                conf = yaml.safe_load(f)
+                conf.update(self.resolve_refs(conf))
+                return conf
+
         config = self.nsg.get_remote_config(asset_type=asset_type)
         if config:
             try:
                 conf = yaml.safe_load(config)
                 conf.update(self.resolve_refs(conf))
-                self.update_config = True
                 return conf
             except yaml.YAMLError as e:
-                self.log.error(f"load_config: {e}")
+                self.log.error(f"load_config: remote config err:  {e}")
 
     def log_args(self):
         self.log.info(self.args)
@@ -104,8 +110,8 @@ class NsgNetboxIntegration:
                 return
 
             #  update config from gitea
-            if self.update_config:
-                self.config = self.load_remote_config()
+            if not self.args.config:
+                self.config = self.load_config()
 
             self.get_netbox_sites()
 
@@ -125,9 +131,9 @@ class NsgNetboxIntegration:
                 key = i.get("device", {}).get("address")
                 if not tags.get(key):
                     tags[key] = {"id": i.get("device", {}).get("id"),
-                                 "tags": dict(t.split(".") for t in i.get("tags", {}))}
+                                 "tags": dict(t.split(".", maxsplit=1) for t in i.get("tags", {}))}
                 else:
-                    tags[key]["tags"].update(dict(t.split(".") for t in i.get("tags", {})))
+                    tags[key]["tags"].update(dict(t.split(".", maxsplit=1) for t in i.get("tags", {})))
 
             nb_dev_set = set(nbox_devices.keys())
             nsg_dev_set = set(nsg_devices.keys())
@@ -135,8 +141,9 @@ class NsgNetboxIntegration:
             to_remove = set.difference(nsg_dev_set, nb_dev_set)  # set of addresses as strings
 
             if to_add:
+                payload = list(self.make_add_device_dict(addr, nbox_devices[addr]) for addr in to_add)
                 self.log.info('ADD devices:    {0}'.format(to_add))
-                self.nsg.add_devices(list(self.make_add_device_dict(addr, nbox_devices[addr]) for addr in to_add))
+                self.nsg.add_devices(payload)
 
             tag_list = make_add_tag_dict(nbox_devices=nbox_devices,
                                          nsg_tags=tags)
@@ -280,7 +287,15 @@ class NsgNetboxIntegration:
         :param addr:      device's primary ip as a string
         :return:
         """
-        return {'name': nb_device.name, 'address': addr, 'channels': self.args.channel}
+        channels = []
+        for k, v in self.channels.items():
+            if k != "*":
+                if re.findall(k, nb_device.name):
+                    channels.extend(v)
+        if not channels:
+            channels.extend(self.channels.get("*", []))
+
+        return {'name': nb_device.name, 'address': addr, 'channels': ", ".join(channels)}
 
     def extract_tags(self, instance: pynetbox.core.response.Record) -> dict[str: any]:
         """

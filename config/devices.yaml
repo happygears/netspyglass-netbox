@@ -43,10 +43,11 @@ nsg_blacklist:
   address:
     - 0.0.0.1
 
-default_channels: 
-  v3ro:
-    regexp: sjc12z.*|sjc12a-cr01|yyz1-bb02|sjc8-mt03|pdx3-dr01|sea2-pr01|pdx1-dc01
-  v2ro:
+default_channels:
+  sjc12z.*|sjc12a-cr01|yyz1-bb02|sjc8-mt03|pdx3-dr01|sea2-pr01|pdx1-dc01:
+    - v3ro
+  "*":
+    - v2ro
 
 domain: net.dropbox.com
 
