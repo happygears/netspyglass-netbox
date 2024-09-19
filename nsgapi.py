@@ -1,7 +1,8 @@
-
+import http
 import json
 import requests
 
+DEVICE_FIELDS_MATCH = ("id", "name", "address")
 
 class NsgAPI:
 
@@ -10,6 +11,7 @@ class NsgAPI:
         self.url = url
         self.token = token
         self.netid = netid
+        self.sess = requests.Session()
 
     def query(self, nsgql):
         full_url = self.concatenate_url('v2/query/net/{0}/data'.format(self.netid))
@@ -107,3 +109,85 @@ class NsgAPI:
             }
         )
         return query
+
+    def get_device_tags(self, device_filter: dict = {}) -> dict:
+        """
+        :param device_filter: dict describes device match:
+                              one of "id": device_id (int)
+                              "name": device name (str)
+                              "address": device primary ip address
+        :return:              list of devices with list of device tags
+        """
+
+        url = self.concatenate_url('v2/tags/net/{0}/external/'.format(self.netid))
+        headers = self.make_headers()
+
+        resp = self.sess.get(url=url,
+                             headers=headers,
+                             params={k:v for k, v in device_filter if k in DEVICE_FIELDS_MATCH} or None,
+                             verify=False
+                             )
+        if resp.status_code != http.HTTPStatus.OK:
+            self.log.error('NetSpyGlass GET tags error: {} {0}'.format(resp.status_code, resp.text))
+            return list()
+
+        try:
+            result = resp.json()
+        except json.JSONDecodeError as e:
+            raise ValueError(e.msg)
+        return result
+
+    def post_device_tags(self, tag_list: list[dict]) -> dict:
+        """
+        :param tag_list: list of dict
+                            {
+                             "category": "device",
+                             "device": {} - dict to match device by "id": id or "address": address
+                             "tags": [] list of tags in format: tagName.tagValue
+                             }
+        :return:              list of devices with list of device tags
+        """
+
+        url = self.concatenate_url('v2/tags/net/{0}/external/'.format(self.netid))
+        headers = self.make_headers()
+        # body = [
+        #     {
+        #         "category": "device",
+        #         "device": device_filter,
+        #         "tags": tags
+        #     }
+        # ]
+
+        resp = self.sess.post(url=url,
+                              headers=headers,
+                              verify=False,
+                              json=tag_list
+                              )
+        if resp.status_code != http.HTTPStatus.OK:
+            self.log.error('NetSpyGlass POST tags error: {} {0}'.format(resp.status_code, resp.text))
+            return list()
+
+        try:
+            result = resp.json()
+        except json.JSONDecodeError as e:
+            raise ValueError(e.msg)
+        return result
+
+    def get_remote_config(self, asset_type: str = "devices") -> str:
+        """
+        Download config file from gitea
+        :param asset_type: config file name
+        :return:
+        """
+        url = self.concatenate_url('store/ex_tags/{}'.format(asset_type))
+        headers = self.make_headers()
+
+        resp = self.sess.get(url=url,
+                             headers=headers,
+                             verify=False
+                             )
+        if resp.status_code != http.HTTPStatus.OK:
+            self.log.error('NetSpyGlass GET config error: {} {0}'.format(resp.status_code, resp.text))
+            return
+        return resp.text
+
