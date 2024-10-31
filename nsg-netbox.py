@@ -155,7 +155,11 @@ class NsgNetboxIntegration:
                 time.sleep(5)
 
             if tag_list:
+                for i in tag_list:
+                    self.log.info(f" tags list to update: {i}")
                 self.nsg.post_device_tags(tag_list=tag_list)
+            else:
+                self.log.info(f" no devices with new/changed tags found")
 
             if to_remove:
                 self.log.info('DELETE devices: {0}'.format(to_remove))
@@ -392,18 +396,17 @@ def make_add_tag_dict(nbox_devices: dict[str: pynetbox.models.dcim.Devices],
     """
     tags = []
     for address, device in nbox_devices.items():
-        n_tags = nsg_tags.get(address)
-        if not n_tags:
-            tags.append({"category": "device",
-                         "device": {"address": address},
-                         "tags": [f"{k}.{v}" for k, v in device.nsg_tags.items()]
-                         })
-        else:
-            tags.append({"category": "device",
-                         "device": {"id": n_tags.get("id")} if n_tags.get("id") else {"address": address},
-                         "tags": [f"{k}.{v}" for k, v in device.nsg_tags.items()
-                                  if n_tags.get("tags", {}).get(k) != str(v)]
-                         })
+        n_tags = nsg_tags.get(address, {})
+        row = {"category": "device",
+               "device": {"address": address},
+               "tags": []
+               }
+        if not n_tags or [f"{k}.{v}" for k, v in device.nsg_tags.items() if n_tags.get("tags", {}).get(k) != str(v)]:
+            row["tags"] = [f"{k}.{v}" for k, v in device.nsg_tags.items()]
+        if n_tags.get("id"):
+            row["device"] = {"id": n_tags.get("id")}
+        if row.get("tags"):
+            tags.append(row)
     return tags
 
 
