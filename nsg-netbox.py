@@ -22,10 +22,10 @@ class NsgNetboxIntegration:
 
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
-        self._config_dir = os.path.dirname(os.path.abspath(self.args.config)) if args.config else None
+        self._config_dir = os.path.dirname(os.path.abspath(self.args.config)) if args.config \
+            else os.path.join(os.path.dirname(os.path.abspath(__file__)), "config")
         self.config = None
         self.domain = None
-        self._sites = {}
         self.log = logging.getLogger('nsg-netbox')
         self.nsg = nsgapi.NsgAPI(self.log, self.args.nsg_url, self.args.nsg_token, self.args.netid)
         self.nbox = pynetbox.api(url=self.args.netbox_url, token=self.args.netbox_token)
@@ -34,6 +34,8 @@ class NsgNetboxIntegration:
         else:
             self.active = 1
         self.config = self.load_config()
+        if not self.config:
+            raise ValueError("config not laded")
         self.domain = self.config.get('domain')
         self.channels={}
         if args.channel:
@@ -56,31 +58,45 @@ class NsgNetboxIntegration:
             if isinstance(v, dict):
                 result.update(self.resolve_refs(v))
             if isinstance(v, str) and v.startswith("$") and not result.get(v[1:]):
-                result[v[1:]] = self.load_config(asset_type=v[1:])
+                result[v[1:]] = self.load_config(config_file=v[1:])
         return result
 
-    def load_config(self, asset_type: str = "devices") -> dict or None:
+    def load_config(self, config_file: str = "config") -> dict or None:
         """
         Load config from gitea or local
 
-        :param asset_type:  config name
+        :param config_file:  config name
         :return: parsed config
         """
+        def load_local(file_name: str) -> dict or None:
+            try:
+                with open(os.path.join(self._config_dir, file), 'r') as f:
+                    conf = yaml.safe_load(f)
+                    conf.update(self.resolve_refs(conf))
+                    return conf
+            except FileNotFoundError:
+                self.log.error(f"config file: {file_name} not found")
+            except yaml.YAMLError as err:
+                self.log.error(f"load config yaml error: {err}")
+            return None
 
         if self.args.config:
-            with open(os.path.join(self._config_dir, f"{asset_type}.yaml"), 'r') as f:
-                conf = yaml.safe_load(f)
-                conf.update(self.resolve_refs(conf))
-                return conf
+            return load_local(config_file)
 
-        config = self.nsg.get_remote_config(asset_type=asset_type)
+        config = self.nsg.get_remote_config(asset_type=config_file)
         if config:
             try:
                 conf = yaml.safe_load(config)
                 conf.update(self.resolve_refs(conf))
                 return conf
             except yaml.YAMLError as e:
-                self.log.error(f"load_config: remote config err:  {e}")
+                self.log.error(f"load_config: remote config yaml error:  {e}")
+        else:
+            file = f"{config_file}.yaml" if not os.path.splitext(config_file)[1] else config_file
+            self.args.config = file
+            return load_local(file)
+
+        return None
 
     def log_args(self):
         self.log.info(self.args)
@@ -109,21 +125,23 @@ class NsgNetboxIntegration:
                 self.scheduler.enter(delay=self.interval_sec, priority=1, action=self.run)
                 return
 
-            #  update config from gitea
             if not self.args.config:
-                self.config = self.load_config()
-
-            self.get_netbox_sites()
+                #  update config from gitea
+                self.config = self.load_config(self.args.config)
 
             nbox_devices = self.get_netbox_devices()
-            self.log.info('Netbox:      {0} devices'.format(len(nbox_devices)))
+            self.log.info(f'Netbox:      {len(nbox_devices):>6} devices')
 
             nsg_devices = self.nsg.get_devices()
             nsg_devices = {k: v for k, v in nsg_devices.items()
-                           if v.get('address') not in self.config.get('nsg_blacklist', {}).get('address', [])
-                           and v.get('name') not in self.config.get('nsg_blacklist', {}).get('name', [])
-                           and v.get('id') not in self.config.get('nsg_blacklist', {}).get('deviceId', [])}
-            self.log.info('NetSpyGlass: {0} devices'.format(len(nsg_devices)))
+                           if v.get('address') not in (self.config.get('nsg_blacklist').get('address', [])
+                                                       if self.config.get('nsg_blacklist') else [])
+                           and v.get('name') not in (self.config.get('nsg_blacklist').get('name', [])
+                                                     if self.config.get('nsg_blacklist') else [])
+                           and v.get('id') not in (self.config.get('nsg_blacklist', {}).get('deviceId', [])
+                                                   if self.config.get('nsg_blacklist') else [])
+                           }
+            self.log.info(f'NetSpyGlass: {len(nsg_devices):>6} devices')
 
             tags_ = self.nsg.get_device_tags()
             tags = {}
@@ -221,36 +239,8 @@ class NsgNetboxIntegration:
                         self.log.error("get_netbox_devices: can't resolve device name: {}".format(device.name))
                 except Exception as e:
                     self.log.error("get_netbox_devices: can't resolve device name: {}: {}".format(device.name, e))
-            site = self._sites.get(device.site.name)
-            if isinstance(site, pynetbox.core.response.Record):
-                for key in ('facility', 'continent', 'metro', 'cluster'):
-                    if not hasattr(device, key) or not getattr(device, key):
-                        setattr(device, key, getattr(site, key) if hasattr(site, key) else None)
             device.nsg_tags = self.extract_tags(device)
         return result
-        # return {self.get_primary_ip(d): d for d in self.netbox_dcim(nbox) if self.condition(d)}
-
-    def get_netbox_sites(self):
-        sites = self.netbox_dcim(model="sites")
-        for site in sites:
-            metro = site.name[:3]
-            try:
-                if not hasattr(site, "facility"):
-                    setattr(site, "facility", None)
-                if not hasattr(site, "cluster"):
-                    setattr(site, "cluster", None)
-                for tag in site.tags:
-                    if tag.name.lower() in ("facility", "pop"):
-                        site.facility = site.name
-                        site.cluster = None
-                    elif tag.name.lower() in ("cluster",):
-                        site.facility = site.name[:-1]
-                        site.cluster = site.name
-                setattr(site, "continent", self.get_mapping(config_key="metro_to_continent", key=metro))
-                setattr(site, "metro", metro)
-            except Exception as e:
-                self.log.error(f"get_netbox_sites: {e}")
-            self._sites[site.name] = site
 
     def get_mapping(self, config_key: str, key: str = None) -> str or None:
         """
@@ -410,8 +400,6 @@ def make_add_tag_dict(nbox_devices: dict[str: pynetbox.models.dcim.Devices],
     return tags
 
 
-# --netbox-url=http://localhost:8000 --netbox-token=474f848bf5d32c1fa61906a2d203a9775498e0ee
-# --nsg-url=https://labqa01.netspyglass.com:13148 --nsg-token=fdfkZ340ggsvZs
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--netbox-url', required=False)

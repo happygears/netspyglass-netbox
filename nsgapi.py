@@ -4,6 +4,7 @@ import requests
 
 DEVICE_FIELDS_MATCH = ("id", "name", "address")
 
+
 class NsgAPI:
 
     def __init__(self, log, url, token, netid) -> None:
@@ -160,7 +161,7 @@ class NsgAPI:
             return list()
         return self.parse_and_log_response("ADD TAGS", resp)
 
-    def get_remote_config(self, asset_type: str = "devices") -> str:
+    def get_remote_config(self, asset_type: str ) -> str:
         """
         Download config file from gitea
         :param asset_type: config file name
@@ -174,7 +175,7 @@ class NsgAPI:
                              verify=False
                              )
         if resp.status_code != http.HTTPStatus.OK:
-            self.log.error('NetSpyGlass GET config error: {} {0}'.format(resp.status_code, resp.text))
+            self.log.error('NetSpyGlass GET config error: {} {}'.format(resp.status_code, resp.text))
             return
         return resp.text
 
