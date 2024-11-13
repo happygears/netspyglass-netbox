@@ -17,46 +17,47 @@ whitelist:
 # devices that pass whitelist will be synchronized
 blacklist:
 #  - tagq
+
 # list of devices in nsg excluding from synchronization 
 nsg_blacklist:
   name:
-#    - zqa-automation-new
+#    - nsg device name
   deviceId:
-#    - 52
+#    - nsg device id
   address:
-#    - 0.0.0.1
+#    - nsg device ip
 
 # Mapping device name -> snmp channels. Device name can be in regex format
 default_channels:
-#  sjc12a-cr01:
-#    - v3ro
-#  sjc12z.*|sjc12a-cr01|yyz1-bb02|sjc8-mt03|pdx3-dr01|sea2-pr01|pdx1-dc01:
-#    - v3ro
+#  device_name:
+#    - v1public
+#  aaa.*|bbb-bb01|ccc-mt01:  # device names regex
+#    - v1public
   "*":
-    - v2ro
+    - v2public
 
-#domain: net.dropbox.com
+#domain: your.domain.com
 
 # List of external nsg tags with corresponding netbox properties
 nsgTags:
 #  Site:
 #    path: site.name
-#  DbxMonitor:
+#  Monitor:
 #    path: status.value
 #    transform: upper
 #    mapping:
 #      active: alerted
 #      "*": ignored
-#  DbxPod:
+#  Pod:
 #    path: config_context.pod
 #  DbxRole:
 #    path: role.name
 #    transform: upper
-#  DbxSpine:
+#  Spine:
 #    path: config_context.spine
-#  DbxRack:
+#  Rack:
 #    path: rack.name
-#  DbxPortProfile:
+#  PortProfile:
 #    path: local_context_data.port_profile
 #  GeoLatitude:
 #    path: latitude
