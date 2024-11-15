@@ -38,7 +38,12 @@ default_channels:
 
 #domain: your.domain.com
 
-# List of external nsg tags with corresponding netbox properties
+# List of extracting external nsg tags with corresponding netbox attribute from netbox devices API
+# format:
+#  nsg_tag:  - name of tag saved to nsg db
+#    path:   - path to the device property within netbox device model in dot notation
+#    transform:  - how to transform netbox attribute to nsg tag: upper, lower, capitalize
+#    mapping:    - dict to convert multiple netbox attribute value to single nsg tag
 nsgTags:
 #  Site:
 #    path: site.name

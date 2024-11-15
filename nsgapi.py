@@ -138,7 +138,7 @@ class NsgAPI:
             raise ValueError(e.msg)
         return result
 
-    def post_device_tags(self, tag_list: list[dict]) -> dict:
+    def post_device_tags(self, tag_list: list[dict], operation: str = "ADD") -> dict:
         """
         :param tag_list: list of dict
                             {
@@ -159,7 +159,7 @@ class NsgAPI:
         if resp.status_code != http.HTTPStatus.OK:
             self.log.error('NetSpyGlass POST tags error: {} {0}'.format(resp.status_code, resp.text))
             return list()
-        return self.parse_and_log_response("ADD TAGS", resp)
+        return self.parse_and_log_response(f"{operation} TAGS", resp)
 
     def get_remote_config(self, asset_type: str ) -> str:
         """

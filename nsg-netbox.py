@@ -22,26 +22,29 @@ class NsgNetboxIntegration:
 
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
-        self._config_dir = os.path.dirname(os.path.abspath(self.args.config)) if args.config \
-            else os.path.join(os.path.dirname(os.path.abspath(__file__)), "config")
-        self.config = None
         self.domain = None
+        self.config = self.load_config(self.args.config
+                                       or os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                       "config",
+                                                       "config.yaml"))
+        if not self.config:
+            raise ValueError("config not laded")
         self.log = logging.getLogger('nsg-netbox')
         self.nsg = nsgapi.NsgAPI(self.log, self.args.nsg_url, self.args.nsg_token, self.args.netid)
         self.nbox = pynetbox.api(url=self.args.netbox_url, token=self.args.netbox_token)
-        if self.nbox_version() > 2.6:
+        version = self.nbox_version()
+        if version and version > 2.6:
             self.active = "active"
         else:
             self.active = 1
-        self.config = self.load_config()
-        if not self.config:
-            raise ValueError("config not laded")
         self.domain = self.config.get('domain')
         self.channels={}
         if args.channel:
             self.channels["*"] = [args.channel, ]
         else:
             self.channels = self.config.get("default_channels", {})
+        if not self.channels:
+            raise ValueError("channels not specified")
         self.scheduler = sched.scheduler(timefunc=time.time, delayfunc=time.sleep)
 
         self.interval_sec = int(pa.interval)
@@ -52,50 +55,21 @@ class NsgNetboxIntegration:
                 logging.StreamHandler()
             ])
 
-    def resolve_refs(self, val: dict) -> dict:
-        result = {}
-        for k, v in val.items():
-            if isinstance(v, dict):
-                result.update(self.resolve_refs(v))
-            if isinstance(v, str) and v.startswith("$") and not result.get(v[1:]):
-                result[v[1:]] = self.load_config(config_file=v[1:])
-        return result
-
-    def load_config(self, config_file: str = "config") -> dict or None:
+    def load_config(self, config_file: str) -> dict or None:
         """
-        Load config from gitea or local
-
-        :param config_file:  config name
-        :return: parsed config
+        load and parse local config
+        :param config_file: config file path
+        :return: parsed config dict or None
         """
-        def load_local(file_name: str) -> dict or None:
-            try:
-                with open(os.path.join(self._config_dir, file), 'r') as f:
-                    conf = yaml.safe_load(f)
-                    conf.update(self.resolve_refs(conf))
-                    return conf
-            except FileNotFoundError:
-                self.log.error(f"config file: {file_name} not found")
-            except yaml.YAMLError as err:
-                self.log.error(f"load config yaml error: {err}")
-            return None
-
-        if self.args.config:
-            return load_local(config_file)
-
-        config = self.nsg.get_remote_config(asset_type=config_file)
-        if config:
-            try:
-                conf = yaml.safe_load(config)
-                conf.update(self.resolve_refs(conf))
+        try:
+            with open(config_file, 'r') as f:
+                conf = yaml.safe_load(f)
+                # conf.update(self.resolve_refs(conf))
                 return conf
-            except yaml.YAMLError as e:
-                self.log.error(f"load_config: remote config yaml error:  {e}")
-        else:
-            file = f"{config_file}.yaml" if not os.path.splitext(config_file)[1] else config_file
-            self.args.config = file
-            return load_local(file)
-
+        except FileNotFoundError:
+            self.log.error(f"config file: {config_file} not found")
+        except yaml.YAMLError as err:
+            self.log.error(f"load config yaml error: {err}")
         return None
 
     def log_args(self):
@@ -116,6 +90,15 @@ class NsgNetboxIntegration:
         get list of devices in Netbox, then get list of devices in NetSpyGlass, compare
         and update devices in NetSpyGlass. Use `primary_ip` attribute (Netbox) to match devices
         """
+
+        def wait_tasks_done():
+            # wait for nsg tasks finished
+            while True:
+                tasks = self.nsg.get_tasks()
+                if not tasks:
+                    break
+                time.sleep(2)
+
         try:
             tasks = self.nsg.get_tasks()
             if tasks:
@@ -124,10 +107,6 @@ class NsgNetboxIntegration:
                 # schedule next run
                 self.scheduler.enter(delay=self.interval_sec, priority=1, action=self.run)
                 return
-
-            if not self.args.config:
-                #  update config from gitea
-                self.config = self.load_config(self.args.config)
 
             nbox_devices = self.get_netbox_devices()
             self.log.info(f'Netbox:      {len(nbox_devices):>6} devices')
@@ -158,6 +137,16 @@ class NsgNetboxIntegration:
             to_add = set.difference(nb_dev_set, nsg_dev_set)  # set of addresses as strings
             to_remove = set.difference(nsg_dev_set, nb_dev_set)  # set of addresses as strings
 
+            if to_remove:
+                self.log.info('DELETE devices: {0}'.format(to_remove))
+                self.nsg.delete_devices(list(nsg_devices[addr]['id'] for addr in to_remove))
+                wait_tasks_done()
+                remove_tags = make_remove_tag_dict(nsg_devices=to_remove, nsg_tags=tags)
+                if remove_tags:
+                    for i in remove_tags:
+                        self.log.info(f" tags list to delete: {i}")
+                    self.nsg.post_device_tags(tag_list=remove_tags, operation="DELETE")
+
             if to_add:
                 payload = list(self.make_add_device_dict(addr, nbox_devices[addr]) for addr in to_add)
                 self.log.info('ADD devices:    {0}'.format(to_add))
@@ -166,11 +155,7 @@ class NsgNetboxIntegration:
             tag_list = make_add_tag_dict(nbox_devices=nbox_devices,
                                          nsg_tags=tags)
             # wait for devices added to nsg
-            while True:
-                tasks = self.nsg.get_tasks()
-                if not tasks:
-                    break
-                time.sleep(5)
+            wait_tasks_done()
 
             if tag_list:
                 for i in tag_list:
@@ -179,10 +164,6 @@ class NsgNetboxIntegration:
             else:
                 self.log.info(f" no devices with new/changed tags found")
 
-            if to_remove:
-                self.log.info('DELETE devices: {0}'.format(to_remove))
-                self.nsg.delete_devices(list(nsg_devices[addr]['id'] for addr in to_remove))
-
         except pynetbox.core.query.RequestError as e:
             self.log.error('Netbox API call has failed: {0}'.format(e))
         except Exception as e:
@@ -190,7 +171,11 @@ class NsgNetboxIntegration:
         # schedule next run
         self.scheduler.enter(delay=self.interval_sec, priority=1, action=self.run)
 
-    def nbox_version(self,):
+    def nbox_version(self) -> float:
+        """
+        get netbox minor version
+        :return: netbox version
+        """
         headers = dict(accept="application/json;")
         headers["authorization"] = "Token {}".format(self.nbox.token)
         version = None
@@ -205,6 +190,8 @@ class NsgNetboxIntegration:
         if not version:
             res = requests.get(url=self.nbox.base_url, headers=headers)
             version = res.headers.get("API-Version", "")
+            if not version:
+                return None
         try:
             return float(".".join(version.split("-")[0].split(".")[:2]))
         except ValueError:
@@ -241,22 +228,6 @@ class NsgNetboxIntegration:
                     self.log.error("get_netbox_devices: can't resolve device name: {}: {}".format(device.name, e))
             device.nsg_tags = self.extract_tags(device)
         return result
-
-    def get_mapping(self, config_key: str, key: str = None) -> str or None:
-        """
-        """
-        if not self.config.get(config_key):
-            #  try to load
-            res = self.nsg.get_remote_config(config_key)
-            if not res:
-                return "unknown"
-            try:
-                self.config[config_key] = yaml.safe_load(res)
-            except yaml.YAMLError as e:
-                self.log.error(f"get_continent: {e}")
-                return "unknown"
-        if key:
-            return self.config.get("metro_to_continent", {}).get(key, "unknown")
 
     def netbox_dcim(self, model: str = "devices", filters: dict = None) -> list[pynetbox.core.response.Record]:
         entity = getattr(self.nbox.dcim, model)
@@ -355,8 +326,6 @@ class NsgNetboxIntegration:
         if subst:
             if isinstance(subst, dict):
                 cur = subst.get(cur, subst.get("*", cur))
-            if isinstance(subst, str) and subst.startswith("$"):
-                cur = self.get_mapping(subst[1:], cur) or self.get_mapping(subst[1:], "*")
         if cur:
             tr = tag.get("transform")
             if tr == "upper":
@@ -400,6 +369,25 @@ def make_add_tag_dict(nbox_devices: dict[str: pynetbox.models.dcim.Devices],
     return tags
 
 
+def make_remove_tag_dict(nsg_devices: dict[str], nsg_tags: dict[str: any]) -> list[dict[str: any]]:
+    """
+    Make payload for nsg tags POST request
+
+    :param nsg_devices: list of nsg devices to delete
+    :param nsg_tags: list of existing devices tags
+    :return:  list of devices witch tags to remove
+    """
+    tags = []
+    for ip in nsg_devices:
+        if nsg_tags.get(ip):
+            row = {"category": "device",
+                   "device": {"address": ip},
+                   "tags": []
+                   }
+            tags.append(row)
+    return tags
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--netbox-url', required=False)
@@ -413,7 +401,7 @@ if __name__ == '__main__':
                         default=1,
                         help='NetSpyGlass network id, usually "1" (default=1)')
     parser.add_argument('--interval', required=False,
-                        default=600,
+                        default=300,
                         help='Poll Netbox and NetSpyGlass at this interval (in seconds). (default=300)')
     pa = parser.parse_args()
     update_from_env(pa)

@@ -35,6 +35,7 @@ for more details on `pynetbox` and detailed instructions for how to obtain Netbo
                          --nsg-url NSG_URL --nsg-token NSG_TOKEN --channel CHANNEL
                          [--whitelist WHITELIST] [--blacklist BLACKLIST]
                          [--netid NETID] [--interval INTERVAL]
+                         [--config /path/to/custom/config/config.yaml]
     
     optional arguments:
       -h, --help            show this help message and exit
@@ -65,6 +66,8 @@ for more details on `pynetbox` and detailed instructions for how to obtain Netbo
       --netid NETID         NetSpyGlass network id, usually "1" (default=1)
       --interval INTERVAL   Poll Netbox and NetSpyGlass at this interval (in
                             seconds). (default=300)
+      --config /path/config.yaml
+                            custom config file location
 
 
 
