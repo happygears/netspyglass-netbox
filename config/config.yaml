@@ -44,6 +44,18 @@ default_channels:
 #    path:   - path to the device property within netbox device model in dot notation
 #    transform:  - how to transform netbox attribute to nsg tag: upper, lower, capitalize
 #    mapping:    - dict to convert multiple netbox attribute value to single nsg tag
+#         example: netbox device property status can be Active, Offline, Planned, Staged, Failed, Inventory
+#                  and we need to discover device only if its status is Active or Failed,
+#                  we can specify mapping for this NSG tag Monitor as follow:
+#                   Monitor:
+#                     path: status.value
+#                     transform: upper
+#                   mapping:
+#                     active: alerted
+#                     failed: alerted
+#                     "*": Ignored
+#                  Active and Failed will be converted into NSG tag Monitor.ALERTED
+#                  All others into Monitor.IGNORED
 nsgTags:
 #  Site:
 #    path: site.name

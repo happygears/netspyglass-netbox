@@ -29,11 +29,14 @@ class NsgNetboxIntegration:
                                                        "config.yaml"))
         if not self.config:
             raise ValueError("config not laded")
+        self.nbox_tags = set(x for x in self.config.get("nsgTags", {}).keys())
         self.log = logging.getLogger('nsg-netbox')
         self.nsg = nsgapi.NsgAPI(self.log, self.args.nsg_url, self.args.nsg_token, self.args.netid)
         self.nbox = pynetbox.api(url=self.args.netbox_url, token=self.args.netbox_token)
         version = self.nbox_version()
-        if version and version > 2.6:
+        if not version:
+            raise ValueError("can not get netbox version")
+        if version > 2.6:
             self.active = "active"
         else:
             self.active = 1
@@ -100,6 +103,9 @@ class NsgNetboxIntegration:
                 time.sleep(2)
 
         try:
+            # schedule next run
+            self.scheduler.enter(delay=self.interval_sec, priority=1, action=self.run)
+
             tasks = self.nsg.get_tasks()
             if tasks:
                 self.log.info('NetSpyGlass: tasks: {0}'.format(len(tasks)))
@@ -168,8 +174,6 @@ class NsgNetboxIntegration:
             self.log.error('Netbox API call has failed: {0}'.format(e))
         except Exception as e:
             self.log.exception('Unknown exception: %s', e)
-        # schedule next run
-        self.scheduler.enter(delay=self.interval_sec, priority=1, action=self.run)
 
     def nbox_version(self) -> float:
         """
@@ -179,8 +183,12 @@ class NsgNetboxIntegration:
         headers = dict(accept="application/json;")
         headers["authorization"] = "Token {}".format(self.nbox.token)
         version = None
+        try:
+            res = requests.get(url=self.nbox.base_url + "/status", headers=headers)
+        except Exception as e:
+            self.log.error(f"netbox connection error: {e}")
+            return None
 
-        res = requests.get(url=self.nbox.base_url + "/status", headers=headers)
         if res.status_code == http.HTTPStatus.OK:
             try:
                 resp = res.json()
@@ -360,7 +368,9 @@ def make_add_tag_dict(nbox_devices: dict[str: pynetbox.models.dcim.Devices],
                "device": {"address": address},
                "tags": []
                }
-        if not n_tags or [f"{k}.{v}" for k, v in device.nsg_tags.items() if n_tags.get("tags", {}).get(k) != str(v)]:
+        if not n_tags \
+                or set(n_tags.get("tags", {})).difference(device.nsg_tags) \
+                or [f"{k}.{v}" for k, v in device.nsg_tags.items() if n_tags.get("tags", {}).get(k) != str(v)]:
             row["tags"] = [f"{k}.{v}" for k, v in device.nsg_tags.items()]
         if n_tags.get("id"):
             row["device"] = {"id": n_tags.get("id")}
