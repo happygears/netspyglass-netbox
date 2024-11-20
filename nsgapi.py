@@ -17,10 +17,10 @@ class NsgAPI:
     def query(self, nsgql):
         full_url = self.concatenate_url('v2/query/net/{0}/data'.format(self.netid))
         headers = self.make_headers()
-        session = requests.Session()
+        # session = requests.Session()
         body = self.make_nsgql_query_request(nsgql)
-        with session.post(full_url, json=body, timeout=60, headers=headers, verify=False, stream=True) as response:
-            return self.parse_and_log_response('', response)
+        response = self.sess.post(full_url, json=body, timeout=60, headers=headers, verify=False, stream=True)
+        return self.parse_and_log_response('', response)
 
     def get_devices(self):
         resp = self.query('SELECT id,name,address FROM devices WHERE physicalDevice=1')
@@ -42,14 +42,14 @@ class NsgAPI:
 
         :param devices:  list of dictionaries
         """
-        print('ADD:  {0}'.format(list(devices)))
+        self.log.info('ADD:  {0}'.format(list(devices)))
         if not devices:
             return None
         full_url = self.concatenate_url('v2/ui/net/{0}/devices/'.format(self.netid))
         headers = self.make_headers()
-        session = requests.Session()
-        with session.post(full_url, json=devices, timeout=60, headers=headers, verify=False, stream=True) as response:
-            return self.parse_and_log_response('ADD', response)
+
+        response = self.sess.post(full_url, json=devices, timeout=60, headers=headers, verify=False, stream=True)
+        return self.parse_and_log_response('ADD', response)
 
     def delete_devices(self, device_ids):
         """
@@ -65,17 +65,15 @@ class NsgAPI:
         full_url = self.concatenate_url(
             'v2/ui/net/{0}/devices/{1}'.format(self.netid, ','.join(str(x) for x in device_ids)))
         headers = self.make_headers()
-        session = requests.Session()
-        with session.delete(full_url, timeout=60, headers=headers, verify=False, stream=True) as response:
-            return self.parse_and_log_response('DELETE', response)
+        response = self.sess.delete(full_url, timeout=60, headers=headers, verify=False, stream=True)
+        return self.parse_and_log_response('DELETE', response)
 
     def get_tasks(self):
         full_url = self.concatenate_url('v2/ui/net/{0}/tasks/'.format(self.netid))
         headers = self.make_headers()
-        session = requests.Session()
         filter = {'active': '1'}
-        with session.get(full_url, params=filter, timeout=60, headers=headers, verify=False, stream=True) as response:
-            return self.parse_and_log_response('TASKS', response)
+        response = self.sess.get(full_url, params=filter, timeout=60, headers=headers, verify=False, stream=True)
+        return self.parse_and_log_response('TASKS', response)
 
     def make_headers(self):
         headers = {'X-NSG-Auth-API-Token': self.token, 'Content-Type': 'application/json'}

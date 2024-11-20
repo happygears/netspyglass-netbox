@@ -50,7 +50,7 @@ class NsgNetboxIntegration:
             raise ValueError("channels not specified")
         self.scheduler = sched.scheduler(timefunc=time.time, delayfunc=time.sleep)
 
-        self.interval_sec = int(pa.interval)
+        self.interval_sec = int(args.interval)
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -289,7 +289,8 @@ class NsgNetboxIntegration:
                     result[tag] = value
         return result
 
-    def extract_tag(self, inst: pynetbox.core.response.Record,
+    @staticmethod
+    def extract_tag(inst: pynetbox.core.response.Record,
                     tag: dict[str: str]) -> str or int or float or None:
         """
         Find given tag in the record

@@ -1,0 +1,31 @@
+
+filters:
+  status: ["active", "staged", "offline"]
+whitelist:
+blacklist:
+nsg_blacklist:
+
+default_channels:
+  "*":
+    - v2ro
+
+domain: test.com
+
+nsgTags:
+  Site:
+    path: site.name
+  Monitor:
+    path: status.value
+    transform: upper
+    mapping:
+      active: alerted
+      "*": ignored
+  Model:
+    path: device_type.model
+    transform: lower
+  Vendor:
+    path: device_type.manufacturer.name
+    transform: capitalize
+  SerialNumber:
+    path: serial
+    transform: upper
