@@ -1,8 +1,11 @@
 import http
 import json
+import math
 import requests
 
 DEVICE_FIELDS_MATCH = ("id", "name", "address")
+NSG_ADD_DEVICES_BATCH_SIZE = 50  # max number of devices to add to NSG in one request
+DEFAULT_TIMOUT = 60
 
 
 class NsgAPI:
@@ -12,20 +15,25 @@ class NsgAPI:
         self.url = url
         self.token = token
         self.netid = netid
-        self.sess = requests.Session()
-
-    def query(self, nsgql):
-        full_url = self.concatenate_url('v2/query/net/{0}/data'.format(self.netid))
         headers = self.make_headers()
-        # session = requests.Session()
+        self.sess = requests.Session()
+        self.sess.headers.update(headers)
+        self.sess.stream = True
+        self.sess.verify = False
+
+    def query(self, nsgql, **kwargs):
+        full_url = self.concatenate_url('v2/query/net/{0}/data'.format(self.netid))
         body = self.make_nsgql_query_request(nsgql)
-        response = self.sess.post(full_url, json=body, timeout=60, headers=headers, verify=False, stream=True)
+        response = self.sess.post(full_url, json=body,
+                                  timeout=kwargs.get("timeout", DEFAULT_TIMOUT),
+                                  headers=kwargs.get("headers"),
+                                  verify=kwargs.get("verify"))
         return self.parse_and_log_response('', response)
 
-    def get_devices(self):
-        resp = self.query('SELECT id,name,address FROM devices WHERE physicalDevice=1')
+    def get_devices(self, **kwargs):
+        resp = self.query('SELECT id AS id,name,address FROM devices WHERE physicalDevice=1', **kwargs)
         if not resp:
-            # log.error('NetSpyGlass query returns empty response')
+            self.log.error('get_devices: NetSpyGlass query returns empty response')
             return {}
         body = resp[0]
         if 'error' in body and body['error']:
@@ -33,7 +41,7 @@ class NsgAPI:
             return
         return {row['address']: row for row in body['rows']}
 
-    def add_devices(self, devices):
+    def add_devices(self, devices, **kwargs) -> dict[str: dict]:
         """
         add several devices. Each item in list `devices` is expected to be a dictionary with
         keys 'name', 'address', 'channel'
@@ -42,16 +50,23 @@ class NsgAPI:
 
         :param devices:  list of dictionaries
         """
-        self.log.info('ADD:  {0}'.format(list(devices)))
         if not devices:
             return None
-        full_url = self.concatenate_url('v2/ui/net/{0}/devices/'.format(self.netid))
-        headers = self.make_headers()
 
-        response = self.sess.post(full_url, json=devices, timeout=60, headers=headers, verify=False, stream=True)
-        return self.parse_and_log_response('ADD', response)
+        full_url = self.concatenate_url('apiv3/net/{0}/device'.format(self.netid))
+        result = {}
+        for i in range(math.ceil(len(devices)/NSG_ADD_DEVICES_BATCH_SIZE)):
+            current = devices[i*NSG_ADD_DEVICES_BATCH_SIZE:(i+1)*NSG_ADD_DEVICES_BATCH_SIZE]
+            self.log.info('ADD:  {0}'.format(list(current)))
+            timeout = kwargs.pop("timeout") if kwargs.get("timeout") else DEFAULT_TIMOUT
+            response = self.sess.post(full_url, json=current, timeout=timeout, **kwargs)
+            res = self.parse_and_log_response(f'ADD devices response ', response)
+            if isinstance(res, list):
+                for row in res:
+                    result[row.get("address")] = row
+        return result
 
-    def delete_devices(self, device_ids):
+    def delete_devices(self, device_ids, **kwargs):
         """
         delete several devices identified by their IDs in the list `devices_ids`
 
@@ -59,20 +74,21 @@ class NsgAPI:
 
         :param device_ids:  list of device ids
         """
-        print('REMOVE:  {0}'.format(list(device_ids)))
+        self.log.info(f'Device ids to REMOVE:  {list(device_ids)}')
         if not device_ids:
             return None
-        full_url = self.concatenate_url(
-            'v2/ui/net/{0}/devices/{1}'.format(self.netid, ','.join(str(x) for x in device_ids)))
-        headers = self.make_headers()
-        response = self.sess.delete(full_url, timeout=60, headers=headers, verify=False, stream=True)
-        return self.parse_and_log_response('DELETE', response)
+        for dev_id in device_ids:
+            full_url = self.concatenate_url(f"apiv3/net/{self.netid}/device/{dev_id}")
+            timeout = kwargs.pop("timeout") if kwargs.get("timeout") else DEFAULT_TIMOUT
+            response = self.sess.delete(full_url, timeout=timeout, **kwargs)
+            self.parse_and_log_response(f'DELETE device id={dev_id}', response)
+        return
 
-    def get_tasks(self):
+    def get_tasks(self, **kwargs):
         full_url = self.concatenate_url('v2/ui/net/{0}/tasks/'.format(self.netid))
-        headers = self.make_headers()
-        filter = {'active': '1'}
-        response = self.sess.get(full_url, params=filter, timeout=60, headers=headers, verify=False, stream=True)
+        filter_ = {'active': '1'}
+        timeout = kwargs.pop("timeout") if kwargs.get("timeout") else DEFAULT_TIMOUT
+        response = self.sess.get(full_url, params=filter_, timeout=timeout, **kwargs)
         return self.parse_and_log_response('TASKS', response)
 
     def make_headers(self):
@@ -85,10 +101,10 @@ class NsgAPI:
         try:
             decoded = response.json()
         except json.JSONDecodeError as e:
-            self.log.error('JSON decoder error: {0} input={1}'.format(e, response.content))
+            self.log.error(f'{name} JSON decoder error: {e} input={response.content}')
             return None
         if name:
-            self.log.info('NSG {0} server={1} response={2}'.format(name, nsg_server, decoded))
+            self.log.info(f'NSG {name} server={nsg_server} response={decoded}')
         return decoded
 
     def concatenate_url(self, uri_path):
@@ -109,7 +125,7 @@ class NsgAPI:
         )
         return query
 
-    def get_device_tags(self, device_filter: dict = {}) -> dict:
+    def get_device_tags(self, device_filter: dict = {}, **kwargs) -> dict:
         """
         :param device_filter: dict describes device match:
                               one of "id": device_id (int)
@@ -119,12 +135,10 @@ class NsgAPI:
         """
 
         url = self.concatenate_url('v2/tags/net/{0}/external/'.format(self.netid))
-        headers = self.make_headers()
 
         resp = self.sess.get(url=url,
-                             headers=headers,
-                             params={k:v for k, v in device_filter if k in DEVICE_FIELDS_MATCH} or None,
-                             verify=False
+                             params={k: v for k, v in device_filter if k in DEVICE_FIELDS_MATCH} or None,
+                             **kwargs
                              )
         if resp.status_code != http.HTTPStatus.OK:
             self.log.error('NetSpyGlass GET tags error: {} {0}'.format(resp.status_code, resp.text))
@@ -136,7 +150,7 @@ class NsgAPI:
             raise ValueError(e.msg)
         return result
 
-    def post_device_tags(self, tag_list: list[dict], operation: str = "ADD") -> dict:
+    def post_device_tags(self, tag_list: list[dict], operation: str = "ADD", **kwargs) -> dict:
         """
         :param tag_list: list of dict
                             {
@@ -148,11 +162,9 @@ class NsgAPI:
         """
 
         url = self.concatenate_url('v2/tags/net/{0}/external/'.format(self.netid))
-        headers = self.make_headers()
         resp = self.sess.post(url=url,
-                              headers=headers,
-                              verify=False,
-                              json=tag_list
+                              json=tag_list,
+                              **kwargs
                               )
         if resp.status_code != http.HTTPStatus.OK:
             self.log.error('NetSpyGlass POST tags error: {} {0}'.format(resp.status_code, resp.text))

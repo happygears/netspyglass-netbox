@@ -1,0 +1,70 @@
+netbox_host = "mock.netbox.net"
+netbox_url = f"http://{netbox_host}"
+
+models = {
+    'dcim': f'{netbox_url}/api/dcim/',
+    'status': f'{netbox_url}/api/status/',
+
+    # # other models - currently not used
+    # 'circuits': f'{netbox_url}/api/circuits/',
+    # 'core': f'{netbox_url}/api/core/',
+    # 'extras': f'{netbox_url}/api/extras/',
+    # 'ipam': f'{netbox_url}/api/ipam/',
+    # 'plugins': f'{netbox_url}/api/plugins/',
+    # 'tenancy': f'{netbox_url}/api/tenancy/',
+    # 'users': f'{netbox_url}/api/users/',
+    # 'virtualization': f'{netbox_url}/api/virtualization/',
+    # 'vpn': f'{netbox_url}/api/vpn/',
+    # 'wireless': f'{netbox_url}/api/wireless/'
+    }
+
+dcim_models = {'cable-terminations': f'{netbox_url}/api/dcim/cable-terminations/',
+               'cables': f'{netbox_url}/api/dcim/cables/',
+               'connected-device': f'{netbox_url}/api/dcim/connected-device/',
+               'console-port-templates': f'{netbox_url}/api/dcim/console-port-templates/',
+               'console-ports': f'{netbox_url}/api/dcim/console-ports/',
+               'console-server-port-templates': f'{netbox_url}/api/dcim/console-server-port-templates/',
+               'console-server-ports': f'{netbox_url}/api/dcim/console-server-ports/',
+               'device-bay-templates': f'{netbox_url}/api/dcim/device-bay-templates/',
+               'device-bays': f'{netbox_url}/api/dcim/device-bays/',
+               'device-roles': f'{netbox_url}/api/dcim/device-roles/',
+               'device-types': f'{netbox_url}/api/dcim/device-types/',
+               'devices': f'{netbox_url}/api/dcim/devices/',
+               'front-port-templates': f'{netbox_url}/api/dcim/front-port-templates/',
+               'front-ports': f'{netbox_url}/api/dcim/front-ports/',
+               'interface-templates': f'{netbox_url}/api/dcim/interface-templates/',
+               'interfaces': f'{netbox_url}/api/dcim/interfaces/',
+               'inventory-item-roles': f'{netbox_url}/api/dcim/inventory-item-roles/',
+               'inventory-item-templates': f'{netbox_url}/api/dcim/inventory-item-templates/',
+               'inventory-items': f'{netbox_url}/api/dcim/inventory-items/',
+               'locations': f'{netbox_url}/api/dcim/locations/',
+               'manufacturers': f'{netbox_url}/api/dcim/manufacturers/',
+               'module-bay-templates': f'{netbox_url}/api/dcim/module-bay-templates/',
+               'module-bays': f'{netbox_url}/api/dcim/module-bays/',
+               'module-types': f'{netbox_url}/api/dcim/module-types/',
+               'modules': f'{netbox_url}/api/dcim/modules/',
+               'platforms': f'{netbox_url}/api/dcim/platforms/',
+               'power-feeds': f'{netbox_url}/api/dcim/power-feeds/',
+               'power-outlet-templates': f'{netbox_url}/api/dcim/power-outlet-templates/',
+               'power-outlets': f'{netbox_url}/api/dcim/power-outlets/',
+               'power-panels': f'{netbox_url}/api/dcim/power-panels/',
+               'power-port-templates': f'{netbox_url}/api/dcim/power-port-templates/',
+               'power-ports': f'{netbox_url}/api/dcim/power-ports/',
+               'rack-reservations': f'{netbox_url}/api/dcim/rack-reservations/',
+               'rack-roles': f'{netbox_url}/api/dcim/rack-roles/',
+               'racks': f'{netbox_url}/api/dcim/racks/',
+               'rear-port-templates': f'{netbox_url}/api/dcim/rear-port-templates/',
+               'rear-ports': f'{netbox_url}/api/dcim/rear-ports/',
+               'regions': f'{netbox_url}/api/dcim/regions/',
+               'site-groups': f'{netbox_url}/api/dcim/site-groups/',
+               'sites': f'{netbox_url}/api/dcim/sites/',
+               'virtual-chassis': f'{netbox_url}/api/dcim/virtual-chassis/',
+               'virtual-device-contexts': f'{netbox_url}/api/dcim/virtual-device-contexts/'
+               }
+
+netbox_status = {'django-version': '5.0.9',
+                 'installed-apps': {'django_filters': '24.2', 'django_prometheus': '2.3.1', 'django_rq': '2.10.2',
+                                    'django_tables2': '2.7.0', 'drf_spectacular': '0.27.2',
+                                    'drf_spectacular_sidecar': '2024.7.1', 'mptt': '0.16.0', 'rest_framework': '3.15.2',
+                                    'social_django': '5.4.2', 'taggit': '5.0.1', 'timezone_field': '7.0'},
+                 'netbox-version': '4.0.11', 'plugins': {}, 'python-version': '3.11.6', 'rq-workers-running': 1}

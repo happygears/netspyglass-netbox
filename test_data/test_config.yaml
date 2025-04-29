@@ -29,3 +29,6 @@ nsgTags:
   SerialNumber:
     path: serial
     transform: upper
+  Role:
+    path: tags
+    transform: UPPER

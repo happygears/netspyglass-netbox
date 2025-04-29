@@ -103,5 +103,4 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-.idea/misc.xml
-.idea/netspyglass-netbox.iml
+.idea/
