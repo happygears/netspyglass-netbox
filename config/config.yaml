@@ -1,33 +1,42 @@
 # netbox device attributes that should be used as filters for devices query.
 # these translate directly into the return fields from the netbox json API.
 # If no filter is specified, by default only devices with Active (1) status are pulled.
-filters:
+netbox_device_attribute_filter:
   status: ["active", "staged", "offline"]
 #  manufacturer: ['juniper']
-#  custom_fields.field1: "foo"
+#  role: ['server']
+#  site: ['site1']
+#  platform: ['LinuxOS']
+#  custom_fields.foo: "bar"
 
 # list of tags to filter devices in Netbox. Only devices that have this tag will be 
 # synchronized to NetSpyGlass. Default is None, which causes all devices present in Netbox to be synchronized.
-whitelist:
+netbox_device_tag_whitelist:
 #  - tag1
 #  - tag2
 
 # list of tags to blacklist from netbox. Devices that have this tag will not be synchronized to NetSpyGlass.
 # Blacklist filter is applied after the whitelist (if any). Default is None, which turns this off and causes all
 # devices that pass whitelist will be synchronized
-blacklist:
+netbox_device_tag_blacklist:
 #  - tagq
 
-# list of devices in nsg excluding from synchronization 
-nsg_blacklist:
+# list of devices in nsg excluded from synchronization
+# by device name (str), device id (int) or device IP (str)
+# devices matching these values will not be updated in nsg db
+nsg_device_blacklist:
   name:
-#    - nsg device name
+#    - cty1-bb02
+#    - cty1-dc01
   deviceId:
-#    - nsg device id
+#    - 52
+#    - 53
   address:
-#    - nsg device ip
+#    - 192.168.1.251
+#    - 192.168.1.254
 
-# Mapping device name -> snmp channels. Device name can be in regex format
+# Mapping device name -> snmp channels. Device name can be exact match or in regex format
+# * (default value) means any other device name not matching with any of the above
 default_channels:
 #  device_name:
 #    - v1public

@@ -135,12 +135,12 @@ class NsgNetboxIntegration:
 
             nsg_devices = self.nsg.get_devices()
             nsg_devices = {k: v for k, v in nsg_devices.items()
-                           if v.get('address') not in (self.config.get('nsg_blacklist').get('address', [])
-                                                       if self.config.get('nsg_blacklist') else [])
-                           and v.get('name') not in (self.config.get('nsg_blacklist').get('name', [])
-                                                     if self.config.get('nsg_blacklist') else [])
-                           and v.get('id') not in (self.config.get('nsg_blacklist', {}).get('deviceId', [])
-                                                   if self.config.get('nsg_blacklist') else [])
+                           if v.get('address') not in (self.config.get('nsg_device_blacklist').get('address', [])
+                                                       if self.config.get('nsg_device_blacklist') else [])
+                           and v.get('name') not in (self.config.get('nsg_device_blacklist').get('name', [])
+                                                     if self.config.get('nsg_device_blacklist') else [])
+                           and v.get('id') not in (self.config.get('nsg_device_blacklist', {}).get('deviceId', [])
+                                                   if self.config.get('nsg_device_blacklist') else [])
                            }
             self.log.info(f'NetSpyGlass: {len(nsg_devices):>6} devices')
 
@@ -243,16 +243,16 @@ class NsgNetboxIntegration:
 
         result = {}
         filters = {}
-        if self.config and self.config.get('filters'):
-            for fk, fv in self.config['filters'].items():
+        if self.config and self.config.get('netbox_device_attribute_filter'):
+            for fk, fv in self.config['netbox_device_attribute_filter'].items():
                 if 'custom_fields' in fk:
                     fk = 'cf_{}'.format(fk.split('.')[1])
                 filters[fk] = fv
         else:
             filters = {"status": self.active}
 
-        if self.config and self.config.get('whitelist'):
-            filters['tag'] = self.config['whitelist']
+        if self.config and self.config.get('netbox_device_tag_whitelist'):
+            filters['tag'] = self.config['netbox_device_tag_whitelist']
         # self._cache["tags"] = self.netbox.get(entity="tags")
         devices = self.netbox.get(entity="devices", filters=filters)
         devices_idx = {}
@@ -276,7 +276,7 @@ class NsgNetboxIntegration:
             if nbox_device.interface_count:
                 devices_with_ifaces.append(nbox_device)
         if hasattr(self.args, "ifaces") and self.args.ifaces:  # proceed interfaces turned off now
-            interfaces = self.get_neetbox_interfaces(device=devices_with_ifaces)
+            interfaces = self.get_netbox_interfaces(device=devices_with_ifaces)
             for iFace in interfaces:
                 id_ = iFace.device_id
                 if not id_:
@@ -286,7 +286,7 @@ class NsgNetboxIntegration:
                 devices_idx[id_].iFaces_tags[iFace.name] = iFace.nsg_tags
         return result
 
-    def get_neetbox_interfaces(self, device: NboxDevice or list[NboxDevice]) -> list[NboxRecord]:
+    def get_netbox_interfaces(self, device: NboxDevice or list[NboxDevice]) -> list[NboxRecord]:
         """
         Get list og interfaces filtered by devices
         :param device: list of devices which interfaces to get
@@ -319,8 +319,9 @@ class NsgNetboxIntegration:
         return str(ipaddress.ip_interface(primary_ip).ip) if primary_ip else None
 
     def condition(self, device: NboxDevice):
-        if self.config and self.config.get('blacklist'):
-            return device.primary_ip is not None and not any([tag in device.tags for tag in self.config['blacklist']])
+        if self.config and self.config.get('netbox_device_tag_blacklist'):
+            return device.primary_ip is not None and not any(
+                [tag in device.tags for tag in self.config['netbox_device_tag_blacklist']])
         else:
             return device.primary_ip is not None
 

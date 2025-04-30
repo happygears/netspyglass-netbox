@@ -1,9 +1,9 @@
 
-filters:
+netbox_device_attribute_filter:
   status: ["active", "staged", "offline"]
-whitelist:
-blacklist:
-nsg_blacklist:
+netbox_device_tag_whitelist:
+netbox_device_tag_blacklist:
+nsg_device_blacklist:
 
 default_channels:
   "*":
