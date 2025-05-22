@@ -1,0 +1,26 @@
+
+netbox_device_attribute_filter:
+  status: ["active", "staged", "offline"]
+netbox_device_tag_whitelist:
+netbox_device_tag_blacklist:
+nsg_device_blacklist:
+
+default_channels:
+  "*":
+    - v2ro
+
+domain: test.com
+
+nsgTags:
+  Site:
+    path: site.name
+  Monitor:
+    path: status.value
+    transform: upper
+    mapping:
+      active: alerted
+      "*": ignored
+  Lat:
+    path: latitude
+  Lon:
+    path: longitude

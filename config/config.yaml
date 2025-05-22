@@ -1,0 +1,99 @@
+# netbox device attributes that should be used as filters for devices query.
+# these translate directly into the return fields from the netbox json API.
+# If no filter is specified, by default only devices with Active (1) status are pulled.
+netbox_device_attribute_filter:
+  status: ["active", "staged", "offline"]
+#  manufacturer: ['juniper']
+#  role: ['server']
+#  site: ['site1']
+#  platform: ['LinuxOS']
+#  custom_fields.foo: "bar"
+
+# list of tags to filter devices in Netbox. Only devices that have this tag will be 
+# synchronized to NetSpyGlass. Default is None, which causes all devices present in Netbox to be synchronized.
+netbox_device_tag_whitelist:
+#  - tag1
+#  - tag2
+
+# list of tags to blacklist from netbox. Devices that have this tag will not be synchronized to NetSpyGlass.
+# Blacklist filter is applied after the whitelist (if any). Default is None, which turns this off and causes all
+# devices that pass whitelist will be synchronized
+netbox_device_tag_blacklist:
+#  - tagq
+
+# list of devices in nsg excluded from synchronization
+# by device name (str), device id (int) or device IP (str)
+# devices matching these values will not be updated in nsg db
+nsg_device_blacklist:
+  name:
+#    - cty1-bb02
+#    - cty1-dc01
+  deviceId:
+#    - 52
+#    - 53
+  address:
+#    - 192.168.1.251
+#    - 192.168.1.254
+
+# Mapping device name -> snmp channels. Device name can be in regex format
+# .* (default value) means any other device name not matching with any of the above
+default_channels:
+#  device_name:
+#    - v1public
+#  aaa.*|bbb-bb01|ccc-mt01:  # device names regex
+#    - v1public
+  ".*":
+    - v2public
+
+#domain: your.domain.com
+
+# List of extracting external nsg tags with corresponding netbox attribute from netbox devices API
+# format:
+#  nsg_tag:  - name of tag saved to nsg db
+#    path:   - path to the device property within netbox device model in dot notation
+#    transform:  - how to transform netbox attribute to nsg tag: upper, lower, capitalize
+#    mapping:    - dict to convert multiple netbox attribute value to single nsg tag
+#         example: netbox device property status can be Active, Offline, Planned, Staged, Failed, Inventory
+#                  and we need to discover device only if its status is Active or Failed,
+#                  we can specify mapping for this NSG tag Monitor as follow:
+#                   Monitor:
+#                     path: status.value
+#                     transform: upper
+#                   mapping:
+#                     active: alerted
+#                     failed: alerted
+#                     "*": Ignored
+#                  Active and Failed will be converted into NSG tag Monitor.ALERTED
+#                  All others into Monitor.IGNORED
+nsgTags:
+#  Site:
+#    path: site.name
+#  Monitor:
+#    path: status.value
+#    transform: upper
+#    mapping:
+#      active: alerted
+#      "*": ignored
+#  Pod:
+#    path: config_context.pod
+#  DbxRole:
+#    path: role.name
+#    transform: upper
+#  Spine:
+#    path: config_context.spine
+#  Rack:
+#    path: rack.name
+#  PortProfile:
+#    path: local_context_data.port_profile
+#  GeoLatitude:
+#    path: latitude
+#  GeoLongitude:
+#    path: longitude
+#  Model:
+#    path: device_type.model
+#    transform: upper
+#  Vendor:
+#    path: device_type.manufacturer.name
+#  SerialNumber:
+#    path: serial
+#    transform: upper

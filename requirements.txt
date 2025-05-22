@@ -1,4 +1,7 @@
-pynetbox==4.2.0
-requests
-urllib3
-pyyaml
+-i https://pypi.org/simple
+certifi==2025.4.26 ; python_version >= '3.6'
+charset-normalizer==3.4.1 ; python_version >= '3.7'
+idna==3.10 ; python_version >= '3.6'
+pyyaml==6.0.2
+requests==2.32.3
+urllib3==2.4.0
