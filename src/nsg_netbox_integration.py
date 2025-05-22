@@ -57,7 +57,7 @@ class NsgNetboxIntegration:
         self.domain = self.config.get('domain')
         self.channels = {}
         if args.channel:
-            self.channels["*"] = [args.channel, ]
+            self.channels[".*"] = [args.channel, ]
         else:
             self.channels = self.config.get("default_channels", {})
         if not self.channels:
@@ -76,14 +76,6 @@ class NsgNetboxIntegration:
         try:
             with open(config_file, 'r') as f:
                 conf = yaml.safe_load(f)
-                # conf.update(self.resolve_refs(conf))
-                for _, val in conf.items():
-                    if isinstance(val, dict):
-                        for key, item in val.items():
-                            if key == "path":
-                                parts = item.split(".")
-                                if parts[0].startswith("$"):
-                                    conf[parts[0][1:]] = True
                 return conf
         except FileNotFoundError:
             self.log.error(f"config file: {config_file} not found")

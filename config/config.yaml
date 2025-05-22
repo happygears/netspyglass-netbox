@@ -35,14 +35,14 @@ nsg_device_blacklist:
 #    - 192.168.1.251
 #    - 192.168.1.254
 
-# Mapping device name -> snmp channels. Device name can be exact match or in regex format
-# * (default value) means any other device name not matching with any of the above
+# Mapping device name -> snmp channels. Device name can be in regex format
+# .* (default value) means any other device name not matching with any of the above
 default_channels:
 #  device_name:
 #    - v1public
 #  aaa.*|bbb-bb01|ccc-mt01:  # device names regex
 #    - v1public
-  "*":
+  ".*":
     - v2public
 
 #domain: your.domain.com

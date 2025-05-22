@@ -20,7 +20,8 @@ if __name__ == '__main__':
     parser.add_argument('--nsg-token', required=False)
     parser.add_argument('--channel', required=False,
                         help='NetSpyGlass communication channel name to use with all imported devices')
-    parser.add_argument('--config', required=False, help='Config yaml file that lists the netbox query options')
+    parser.add_argument('--config', required=False, help='Config yaml file that lists the netbox query options.'
+                                                         'If not provided config/config.yaml is used')
     parser.add_argument('--netid', required=False,
                         default=1,
                         help='NetSpyGlass network id, usually "1" (default=1)')
